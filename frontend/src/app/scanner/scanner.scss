@@ -1,0 +1,80 @@
+.barcode-input {
+  font-size: 20px;
+  padding: 14px 16px;
+  letter-spacing: 1px;
+}
+
+.scan-loading {
+  color: var(--muted);
+  margin: 0;
+}
+
+.card-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.card-text {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.weight-card {
+  border-left: 4px solid var(--primary);
+}
+
+.weight-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.result-card {
+  border-left: 4px solid var(--success);
+}
+
+.result-header {
+  margin-bottom: 12px;
+}
+
+.result-row {
+  display: flex;
+  gap: 16px;
+  padding: 6px 0;
+}
+
+.result-label {
+  width: 90px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.result-weight {
+  font-size: 20px;
+  font-weight: 600;
+  align-items: baseline;
+}
+
+.result-equiv {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+@media (max-width: 560px) {
+  .weight-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,49 @@
+.table-wrap {
+  overflow-x: auto;
+}
+
+.card-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.card-text {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.edit-card {
+  border-left: 4px solid var(--primary);
+}
+
+.confirm-card {
+  border-left: 4px solid var(--danger);
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .btn + .btn {
+  margin-left: 6px;
+}
+
+@media (max-width: 640px) {
+  .edit-grid {
+    grid-template-columns: 1fr;
+  }
+}

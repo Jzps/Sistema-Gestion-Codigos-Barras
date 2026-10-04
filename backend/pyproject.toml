@@ -1,0 +1,9 @@
+[project]
+name = "sgcbp-backend"
+version = "1.0.0"
+description = "SGCBP - Sistema de Gestion de Codigos de Barras y Pesos (backend FastAPI)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

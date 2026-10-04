@@ -1,0 +1,147 @@
+<div class="page">
+  <h1 class="page-title">Escanear</h1>
+  <p class="page-subtitle">
+    Coloca el cursor en el campo y lee el código con el lector USB (o escríbelo y pulsa Enter).
+  </p>
+
+  <div class="card scan-card">
+    <div class="field">
+      <label for="barcode">Código de barras</label>
+      <input
+        #barcodeInput
+        id="barcode"
+        class="input barcode-input mono"
+        name="barcode"
+        [(ngModel)]="barcode"
+        (keydown.enter)="onScan()"
+        appAutofocus
+        autocomplete="off"
+        placeholder="Ej. 7501234567890"
+      />
+    </div>
+
+    @if (error()) {
+      <div class="alert-error">{{ error() }}</div>
+    }
+    @if (loading()) {
+      <p class="scan-loading">Procesando…</p>
+    }
+  </div>
+
+  @if (pendingBarcode()) {
+    <div class="card weight-card">
+      <h2 class="card-title">Producto no registrado</h2>
+      <p class="card-text">
+        El código <span class="mono">{{ pendingBarcode() }}</span> es nuevo. Introduce su peso una
+        sola vez; los próximos escaneos lo recuperarán automáticamente.
+      </p>
+
+      <div class="weight-grid">
+        <div class="field">
+          <label for="weight">Peso</label>
+          <input
+            id="weight"
+            class="input"
+            type="number"
+            name="weight"
+            [(ngModel)]="weightValue"
+            (keydown.enter)="onSubmitWeight()"
+            min="0"
+            step="any"
+            placeholder="Ej. 44.09"
+            appAutofocus
+          />
+        </div>
+
+        <div class="field">
+          <label for="unit">Unidad</label>
+          <select id="unit" class="input" name="unit" [(ngModel)]="weightUnit">
+            <option value="KG">Kilogramos (kg)</option>
+            <option value="LB">Libras (lb)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="productName">Nombre del producto (opcional)</label>
+        <input
+          id="productName"
+          class="input"
+          name="productName"
+          [(ngModel)]="productName"
+          (keydown.enter)="onSubmitWeight()"
+          maxlength="255"
+          placeholder="Ej. Caja de tornillos 2&quot;"
+        />
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="button" (click)="onSubmitWeight()" [disabled]="loading()">
+          Guardar y registrar
+        </button>
+        <button class="btn btn-outline" type="button" (click)="cancelWeight()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (result(); as res) {
+    <div class="card result-card">
+      <div class="result-header">
+        @if (res.status === 'created') {
+          <span class="badge badge-success">Nuevo producto registrado</span>
+        } @else {
+          <span class="badge badge-info">Producto existente</span>
+        }
+      </div>
+      @if (res.product; as product) {
+        <div class="result-body">
+          <div class="result-row">
+            <span class="result-label">Código</span>
+            <span class="mono">{{ product.barcode_raw }}</span>
+          </div>
+          @if (product.product_name) {
+            <div class="result-row">
+              <span class="result-label">Producto</span>
+              <span>{{ product.product_name }}</span>
+            </div>
+          }
+          <div class="result-row result-weight">
+            <span class="result-label">Peso</span>
+            <span>
+              {{ product.weight_value | number: '1.0-4' }} {{ product.weight_unit }}
+              <span class="result-equiv">
+                ≈ {{ product.weight_kg | number: '1.0-3' }} kg
+              </span>
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (recent().length > 0) {
+    <div class="card">
+      <h2 class="card-title">Actividad reciente</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Código</th>
+            <th>Producto</th>
+            <th>Peso</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of recent(); track row.id) {
+            <tr>
+              <td>{{ row.scanned_at | date: 'HH:mm:ss' }}</td>
+              <td class="mono">{{ row.barcode_raw }}</td>
+              <td>{{ row.product_name || '—' }}</td>
+              <td>{{ row.weight_value | number: '1.0-4' }} {{ row.weight_unit }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
