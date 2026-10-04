@@ -48,6 +48,13 @@ queda en un historial exportable a Excel.
 | RF-19 | Columnas legibles en el Excel                                        | ✅        |
 | RF-20 | Rechazo de accesos no autenticados (401)                             | ✅        |
 | RF-21 | Imposibilidad de leer datos de otro workspace (404 sin filtrar info) | ✅        |
+| RF-22 | Corregir producto (PATCH: barcode, nombre, identificadores, peso)    | ✅ API + UI |
+| RF-23 | Eliminar producto SOLO sin escaneos (409 si tiene historial)         | ✅ API + UI |
+| RF-24 | Eliminar scan incorrecto sin tocar el producto (204)                 | ✅ API + UI |
+
+RF-22/23 se consumen desde la pestaña **Productos** (edición inline con
+confirmación) y RF-24 desde **Historial** (eliminación con confirmación).
+Los errores 409/404 se muestran al usuario con mensajes comprensibles.
 
 ## Reglas de dominio
 
@@ -66,3 +73,12 @@ queda en un historial exportable a Excel.
 5. **Seguridad**: Argon2id para contraseñas, JWT en cookie HttpOnly
    (`SameSite=Lax`; `Secure` configurable por entorno), validación Pydantic
    en toda entrada, CORS explícito, sin stack traces al cliente.
+6. **Corrección de productos** (PATCH parcial): campos editables
+   `barcode_raw`, `barcode_type`, `product_identifier`, `product_name`,
+   `weight_value`, `weight_unit`. `weight_kg` se recalcula siempre que cambia
+   el peso o la unidad. Barcode duplicado en el workspace → 409. Editar un
+   producto nunca modifica sus scans.
+7. **Borrado seguro**: un producto solo se elimina si no tiene scans (409 en
+   caso contrario). Los scans son eventos inmutables: no se editan; la
+   corrección es eliminar el scan incorrecto y volver a escanear. Eliminar
+   un scan nunca toca el producto.

@@ -22,7 +22,7 @@ def to_user_out(user: User) -> UserOut:
     )
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, summary="Inicia sesión")
 def login(payload: LoginRequest, response: Response, db: DbSession) -> LoginResponse:
     user = authenticate_user(db, payload.username, payload.password)
     if user is None:
@@ -43,11 +43,11 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> LoginResp
     return LoginResponse(user=to_user_out(user))
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Cierra sesión")
 def logout(response: Response) -> None:
     response.delete_cookie(key=get_settings().COOKIE_NAME, samesite="lax")
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=UserOut, summary="Devuelve el usuario actual")
 def me(user: CurrentUser) -> UserOut:
     return to_user_out(user)

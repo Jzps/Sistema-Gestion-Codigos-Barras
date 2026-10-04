@@ -10,6 +10,31 @@
   @if (error()) {
     <div class="alert-error">{{ error() }}</div>
   }
+  @if (actionError()) {
+    <div class="alert-error" role="alert">{{ actionError() }}</div>
+  }
+  @if (successMessage()) {
+    <div class="alert-success" role="status">{{ successMessage() }}</div>
+  }
+
+  @if (deleting(); as row) {
+    <div class="card confirm-card">
+      <h2 class="card-title">Eliminar registro del historial</h2>
+      <p class="card-text">
+        ¿Seguro que deseas eliminar el escaneo de
+        <strong class="mono">{{ row.barcode_raw }}</strong> del
+        {{ row.scanned_at | date: 'dd/MM/yyyy HH:mm:ss' }}? El producto no se eliminará.
+      </p>
+      <div class="actions">
+        <button class="btn btn-danger" type="button" (click)="confirmDelete()" [disabled]="saving()">
+          {{ saving() ? 'Eliminando…' : 'Sí, eliminar' }}
+        </button>
+        <button class="btn btn-outline" type="button" (click)="cancelDelete()" [disabled]="saving()">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  }
 
   <div class="card">
     @if (loading()) {
@@ -29,6 +54,7 @@
               <th>Unidad</th>
               <th>Peso (kg)</th>
               <th>Usuario</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -42,6 +68,11 @@
                 <td>{{ row.weight_unit }}</td>
                 <td>{{ row.weight_kg | number: '1.0-3' }}</td>
                 <td>{{ row.username }}</td>
+                <td class="actions-cell">
+                  <button class="btn btn-danger btn-small" type="button" (click)="startDelete(row)">
+                    Eliminar
+                  </button>
+                </td>
               </tr>
             }
           </tbody>

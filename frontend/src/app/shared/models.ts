@@ -37,6 +37,17 @@ export interface ScanRow {
   weight_lb: string;
 }
 
+// Espejo de app/schemas/product.py::ProductUpdate (todos opcionales:
+// solo se envían los campos que se quieren modificar).
+export interface ProductUpdate {
+  barcode_raw?: string | null;
+  barcode_type?: string | null;
+  product_identifier?: string | null;
+  product_name?: string | null;
+  weight_value?: number | null;
+  weight_unit?: 'KG' | 'LB' | null;
+}
+
 export type ScanStatus = 'existing' | 'created' | 'needs_weight';
 
 export interface ScanResponse {

@@ -110,6 +110,10 @@ Creadas por `python -m app.seed` (solo entorno local, configurables en `.env`):
 4. Escanea el mismo código otra vez → el peso aparece al instante.
 5. **Historial** muestra fecha, hora, código, producto, peso, unidad y usuario;
    desde ahí se descarga el `.xlsx`.
+6. En **Productos** puedes **Editar** cualquier producto (código, nombre,
+   peso, unidad) y **Eliminar** los que no tengan escaneos (si los tiene, la
+   app avisa y no borra nada). En **Historial** puedes **Eliminar** un
+   escaneo incorrecto; el producto no se ve afectado.
 
 ## Tests
 
@@ -117,6 +121,13 @@ Creadas por `python -m app.seed` (solo entorno local, configurables en `.env`):
 cd backend
 .venv\Scripts\activate
 pytest -q
+
+cd ../frontend
+CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
+  npx ng test --watch=false --browsers=ChromeHeadless   # Windows sin Chrome
+
+# E2E de la interfaz (con ./start.sh en marcha), desde la raíz:
+node scripts/e2e-ui.mjs
 ```
 
 ## Documentación

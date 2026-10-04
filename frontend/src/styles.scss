@@ -132,6 +132,21 @@ select.input {
   background: var(--accent);
 }
 
+.btn-danger {
+  background: var(--surface);
+  border-color: #e0b4b0;
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fdecea;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
 /* --- Tablas --- */
 .table {
   width: 100%;
@@ -181,6 +196,16 @@ select.input {
   background: #fdecea;
   color: var(--danger);
   border: 1px solid #f5c6c2;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.alert-success {
+  background: #e2f4e9;
+  color: var(--success);
+  border: 1px solid #b6e2c6;
   border-radius: var(--radius);
   padding: 10px 14px;
   margin-bottom: 14px;

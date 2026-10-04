@@ -82,3 +82,14 @@ vía producto) para que el historial se filtre directamente por tenant.
 - Timestamps con zona horaria y `server_default=now()`.
 - Borrado en cascada desde el workspace: eliminar un workspace elimina sus
   usuarios, productos y escaneos.
+
+## Política de borrado (capa de aplicación)
+
+- La FK `scans.product_id` tiene `ON DELETE CASCADE` a nivel de BD, pero la
+  aplicación **nunca** elimina un producto con escaneos: `DELETE
+  /api/products/{id}` responde 409 mientras existan (política en
+  `services/product_service.py`). El cascade de la FK queda así sin efecto
+  práctico y el historial solo se reduce eliminando scans de forma explícita.
+- Los scans no se editan (eventos inmutables) ni se borran en cascada desde
+  la aplicación; `DELETE /api/scans/{id}` borra solo el evento.
+- No hay soft delete ni columnas extra: esta política no requirió migración.

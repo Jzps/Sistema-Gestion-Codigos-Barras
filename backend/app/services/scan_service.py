@@ -16,6 +16,7 @@ from app.repositories import products as products_repo
 from app.repositories import scans as scans_repo
 from app.schemas.product import ProductOut
 from app.schemas.scan import ScanOut, ScanRequest, ScanResponse
+from app.services.errors import NotFoundError
 from app.services.weight import to_kg, to_lb
 
 
@@ -87,3 +88,17 @@ def handle_scan(
         product=ProductOut.model_validate(product),
         scan=to_scan_out(scan),
     )
+
+
+def delete_scan(db: Session, *, workspace_id: int, scan_id: int) -> None:
+    """Elimina un evento de escaneo incorrecto (p. ej. una doble lectura).
+
+    Solo borra el registro historico: el producto asociado NUNCA se toca.
+    No existe PATCH de scans a proposito: un scan es un evento inmutable;
+    la correccion es eliminarlo y volver a escanear.
+    """
+    scan = scans_repo.get_by_id_in_workspace(db, workspace_id, scan_id)
+    if scan is None:
+        raise NotFoundError("Escaneo no encontrado")
+    scans_repo.delete(db, scan)
+    db.commit()

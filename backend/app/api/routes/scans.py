@@ -8,7 +8,11 @@ from app.repositories import scans as scans_repo
 router = APIRouter(prefix="/scans", tags=["scans"])
 
 
-@router.post("", response_model=ScanResponse)
+@router.post(
+    "",
+    response_model=ScanResponse,
+    summary="Procesa un escaneo (existente, nuevo con peso, o pide peso)",
+)
 def create_scan(
     payload: ScanRequest, response: Response, user: CurrentUser, db: DbSession
 ) -> ScanResponse:
@@ -25,7 +29,11 @@ def create_scan(
     return result
 
 
-@router.get("", response_model=list[ScanOut])
+@router.get(
+    "",
+    response_model=list[ScanOut],
+    summary="Historial de escaneos del workspace (más recientes primero)",
+)
 def list_scans(
     user: CurrentUser,
     db: DbSession,
@@ -34,3 +42,16 @@ def list_scans(
 ) -> list[ScanOut]:
     scans = scans_repo.list_history(db, user.workspace_id, limit=limit, offset=offset)
     return [scan_service.to_scan_out(scan) for scan in scans]
+
+
+@router.delete(
+    "/{scan_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Elimina un escaneo incorrecto del historial",
+    responses={404: {"description": "Escaneo inexistente o de otro workspace"}},
+)
+def delete_scan(scan_id: int, user: CurrentUser, db: DbSession) -> None:
+    """Borra solo el evento (p. ej. una doble lectura accidental); el producto
+    asociado no se modifica. No existe PATCH de scans: son eventos inmutables
+    y la corrección es eliminar y volver a escanear."""
+    scan_service.delete_scan(db, workspace_id=user.workspace_id, scan_id=scan_id)

@@ -61,6 +61,7 @@ es SGCBP; la raíz del repo ES la raíz del monorepo (sin subcarpeta extra).
 │   ├── dashboard/  products/  history/  reports/  shared/
 │   └── environments        # apiUrl = http://localhost:8000/api
 ├── docs/                   # requirements, architecture, database, setup
+├── scripts/e2e-ui.mjs      # verificación E2E de la UI (Edge headless CDP, sin deps)
 ├── docker-compose.yml      # SOLO PostgreSQL
 ├── start.sh                # arranque único (Git Bash Windows): todo el entorno
 └── .env.example
@@ -115,6 +116,20 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
    Limitación aceptada en V1: JWT stateless, tras logout una copia del token
    sigue válida hasta expirar. No devolver `password_hash` jamás.
 6. **Errores**: nunca stack traces al cliente (manejador global en `main.py`).
+   Los servicios lanzan `NotFoundError`/`ConflictError`
+   (`services/errors.py`) y `main.py` los traduce a 404/409: los servicios
+   no conocen HTTP.
+7. **Producto ≠ scan** (corrección y borrado):
+   - `PATCH /api/products/{id}` edita `barcode_raw`, `barcode_type`,
+     `product_identifier`, `product_name`, `weight_value`, `weight_unit`;
+     recalcula `weight_kg` con `services/weight.py`. Editar NO toca scans
+     (referencian `product_id`; el historial se arma vía JOIN y muestra el
+     dato corregido). Barcode duplicado en workspace → 409.
+   - `DELETE /api/products/{id}` solo si NO tiene scans → si tiene, 409.
+     Sin soft delete; sin migración.
+   - `DELETE /api/scans/{id}` borra solo el evento; el producto queda intacto.
+   - **No existe PATCH de scans a propósito**: eventos históricos inmutables;
+     corregir = eliminar + re-escanear.
 
 ## 8. Convenciones de código
 
@@ -123,6 +138,10 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
 - Frontend: convención Angular 20 (`scanner.ts` + `scanner.html` + `.scss`,
   clase `Scanner`, standalone por defecto). Signals para estado, FormsModule
   con ngModel en formularios simples, interceptor con `withCredentials`.
+- UI de corrección/borrado: edición inline en tarjeta y confirmación inline
+  (sin modales ni librerías). Errores HTTP → mensajes vía
+  `shared/api-error.ts:describeApiError` (409/404 reusan `detail` del backend).
+  Actualización en caliente con signals (sin recargar ni state management).
 - UI en español, paleta fría (variables CSS en `styles.scss`). El escaneo es
   la acción principal: campo de código con autofocus y retorno de foco tras
   cada operación.
@@ -163,12 +182,26 @@ pytest -q                            # tests (SQLite en memoria, sin Docker)
 npm install
 npm start                            # :4200
 npm run build                        # verificación de build
+# Tests (Karma+Jasmine). En esta máquina no hay Chrome: usar Edge (Chromium).
+CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
+  npx ng test --watch=false --browsers=ChromeHeadless
+```
+
+### E2E de la UI (con `./start.sh` en marcha)
+
+```bash
+node scripts/e2e-ui.mjs              # Edge headless vía CDP; 11 comprobaciones
 ```
 
 ## 10. Verificación actual (estado real comprobado)
 
-- `pytest`: 26/26 OK (auth, 401s, conversión KG/LB, flujo escaneo
-  nuevo/existente, aislamiento entre workspaces, XLSX).
+- `pytest`: 47/47 OK (auth, 401s, conversión KG/LB, flujo escaneo
+  nuevo/existente, aislamiento entre workspaces, XLSX, PATCH de productos,
+  borrado seguro de productos y scans).
+- Corrección/borrado verificados en vivo (curl): PATCH nombre+peso LB
+  (recalcula `weight_kg`), PATCH barcode, 409 por barcode duplicado, 409 al
+  borrar producto con scans, 204 al borrar scan y luego producto, 404 tras
+  borrado. Swagger lista PATCH/DELETE con 404/409 documentados.
 - Alembic `upgrade`/`downgrade`/`upgrade` OK contra PostgreSQL 16 en Docker.
 - Flujo vivo con curl: login → needs_weight → created (44.09 LB → 19.998888 kg)
   → existing → historial → XLSX válido → logout → 401.
@@ -177,6 +210,12 @@ npm run build                        # verificación de build
 - `./start.sh` OK en Git Bash: levanta todo y CTRL+C deja 8000/4200 libres.
   OJO: uvicorn en el script va SIN --reload a propósito (el reloader
   rearranca al servidor al matarlo externamente y rompe el apagado limpio).
+- Frontend: `ng test` 10/10 OK (products + history con HttpTestingController);
+  `ng build` OK. E2E real con `scripts/e2e-ui.mjs` (Edge headless CDP):
+  11/11 OK — login UI, escaneo nuevo/existente, edición con actualización en
+  caliente, 409 duplicado, 409 borrar producto con scans, borrar scans,
+  borrar producto sin scans, escaneo tras editar usa datos actualizados,
+  layout a 480px sin scroll horizontal.
 
 ## 11. Reglas que el agente NO debe romper
 
@@ -191,6 +230,10 @@ npm run build                        # verificación de build
 6. No hardcodear secretos; todo sensible va por `.env` (en `.gitignore`).
 7. No cambiar el stack ni la estructura de capas sin actualizar este archivo.
 8. Mantener el endpoint de escaneo único salvo que cambie el requisito.
+9. No añadir PATCH/edición de scans (eventos inmutables) ni borrado de
+   productos con scans saltándose la política 409.
+10. No duplicar la conversión de pesos: toda recalibración pasa por
+    `services/weight.py`.
 
 ## 12. Futuras extensiones previstas (diseño ya preparado, NO implementar)
 

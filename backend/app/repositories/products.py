@@ -1,9 +1,10 @@
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
+from app.models.scan import Scan
 
 
 def get_by_barcode(db: Session, workspace_id: int, barcode_raw: str) -> Product | None:
@@ -64,3 +65,18 @@ def create(
     db.add(product)
     db.flush()  # obtiene id dentro de la transaccion; el commit lo hace el servicio
     return product
+
+
+def count_scans(db: Session, product_id: int) -> int:
+    """Numero de escaneos asociados al producto (politica de borrado)."""
+    return (
+        db.scalar(select(func.count(Scan.id)).where(Scan.product_id == product_id))
+        or 0
+    )
+
+
+def delete(db: Session, product: Product) -> None:
+    """El commit lo hace el servicio. NUNCA llamar con scans asociados:
+    la FK tiene ON DELETE CASCADE a nivel de BD y borraria el historial;
+    la politica la impone product_service."""
+    db.delete(product)

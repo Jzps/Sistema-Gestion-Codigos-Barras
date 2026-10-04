@@ -5,6 +5,113 @@
   @if (error()) {
     <div class="alert-error">{{ error() }}</div>
   }
+  @if (actionError()) {
+    <div class="alert-error" role="alert">{{ actionError() }}</div>
+  }
+  @if (successMessage()) {
+    <div class="alert-success" role="status">{{ successMessage() }}</div>
+  }
+
+  @if (editing(); as product) {
+    <div class="card edit-card">
+      <h2 class="card-title">Editar producto <span class="mono">{{ product.barcode_raw }}</span></h2>
+      <p class="card-text">
+        El peso en kg lo recalcula el servidor al guardar. Los escaneos existentes no se modifican.
+      </p>
+
+      <div class="edit-grid">
+        <div class="field">
+          <label for="editBarcode">Código de barras</label>
+          <input
+            id="editBarcode"
+            class="input mono"
+            name="editBarcode"
+            [(ngModel)]="editBarcode"
+            maxlength="128"
+          />
+        </div>
+        <div class="field">
+          <label for="editName">Nombre (opcional)</label>
+          <input
+            id="editName"
+            class="input"
+            name="editName"
+            [(ngModel)]="editName"
+            maxlength="255"
+          />
+        </div>
+        <div class="field">
+          <label for="editType">Tipo de código (opcional)</label>
+          <input
+            id="editType"
+            class="input"
+            name="editType"
+            [(ngModel)]="editType"
+            maxlength="32"
+            placeholder="Ej. EAN-13"
+          />
+        </div>
+        <div class="field">
+          <label for="editIdentifier">Identificador (opcional)</label>
+          <input
+            id="editIdentifier"
+            class="input"
+            name="editIdentifier"
+            [(ngModel)]="editIdentifier"
+            maxlength="64"
+          />
+        </div>
+        <div class="field">
+          <label for="editWeight">Peso</label>
+          <input
+            id="editWeight"
+            class="input"
+            type="number"
+            name="editWeight"
+            [(ngModel)]="editWeight"
+            min="0"
+            step="any"
+          />
+        </div>
+        <div class="field">
+          <label for="editUnit">Unidad</label>
+          <select id="editUnit" class="input" name="editUnit" [(ngModel)]="editUnit">
+            <option value="KG">Kilogramos (kg)</option>
+            <option value="LB">Libras (lb)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="button" (click)="saveEdit()" [disabled]="saving()">
+          {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+        </button>
+        <button class="btn btn-outline" type="button" (click)="cancelEdit()" [disabled]="saving()">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (deleting(); as product) {
+    <div class="card confirm-card">
+      <h2 class="card-title">Eliminar producto</h2>
+      <p class="card-text">
+        ¿Seguro que deseas eliminar el producto
+        <strong class="mono">{{ product.barcode_raw }}</strong
+        >@if (product.product_name) {
+          ({{ product.product_name }}) }? Solo será posible si no tiene escaneos registrados.
+      </p>
+      <div class="actions">
+        <button class="btn btn-danger" type="button" (click)="confirmDelete()" [disabled]="saving()">
+          {{ saving() ? 'Eliminando…' : 'Sí, eliminar' }}
+        </button>
+        <button class="btn btn-outline" type="button" (click)="cancelDelete()" [disabled]="saving()">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  }
 
   <div class="card">
     @if (loading()) {
@@ -22,6 +129,7 @@
               <th>Unidad</th>
               <th>Peso (kg)</th>
               <th>Registrado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -33,6 +141,14 @@
                 <td>{{ product.weight_unit }}</td>
                 <td>{{ product.weight_kg | number: '1.0-3' }}</td>
                 <td>{{ product.created_at | date: 'dd/MM/yyyy' }}</td>
+                <td class="actions-cell">
+                  <button class="btn btn-outline btn-small" type="button" (click)="startEdit(product)">
+                    Editar
+                  </button>
+                  <button class="btn btn-danger btn-small" type="button" (click)="startDelete(product)">
+                    Eliminar
+                  </button>
+                </td>
               </tr>
             }
           </tbody>

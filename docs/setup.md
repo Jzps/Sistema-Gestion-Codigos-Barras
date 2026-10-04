@@ -95,6 +95,8 @@ Aplicación en http://localhost:4200. La URL de la API se configura en
 
 ## 6. Tests
 
+### Backend
+
 ```bash
 cd backend
 .venv\Scripts\activate
@@ -103,7 +105,33 @@ pytest -q
 
 La suite usa SQLite en memoria y no necesita Docker. Cubre: autenticación,
 protección de endpoints, conversión KG/LB, flujo de escaneo (nuevo/existente),
-aislamiento entre workspaces y exportación XLSX.
+aislamiento entre workspaces, exportación XLSX, PATCH de productos y
+borrado seguro (productos y scans).
+
+### Frontend
+
+```bash
+cd frontend
+# En Windows sin Chrome instalado, apuntar Karma a Edge (Chromium):
+CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
+  npx ng test --watch=false --browsers=ChromeHeadless
+```
+
+Tests de componentes de Productos e Historial con `HttpTestingController`:
+renderizado de acciones, llamadas PATCH/DELETE correctas, actualización del
+estado y manejo de errores 404/409.
+
+### E2E de la interfaz
+
+Con `./start.sh` en marcha:
+
+```bash
+node scripts/e2e-ui.mjs
+```
+
+Conduce la aplicación real en Edge headless (DevTools Protocol, sin
+dependencias externas): login, escaneo completo, edición de producto, errores
+409, eliminación de scans y de producto, y layout a 480px.
 
 ## Solución de problemas
 

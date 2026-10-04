@@ -14,7 +14,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
-@router.get("/scans.xlsx")
+@router.get("/scans.xlsx", summary="Descarga el historial de escaneos en Excel")
 def export_scans_xlsx(user: CurrentUser, db: DbSession) -> StreamingResponse:
     """Genera y descarga el historial del workspace. El archivo se crea en
     memoria bajo demanda; no se guarda en disco."""

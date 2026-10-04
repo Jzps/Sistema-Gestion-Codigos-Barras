@@ -6,7 +6,7 @@ from app.api.deps import DbSession
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get("/health", summary="Estado de la API y la base de datos")
 def health(db: DbSession) -> dict:
     try:
         db.execute(text("SELECT 1"))

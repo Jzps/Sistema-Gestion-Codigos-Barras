@@ -71,29 +71,64 @@ Ante una colisión de concurrencia (mismo barcode creado a la vez), se captura
 auth/       Login, AuthService (sesión), authGuard, interceptor withCredentials
 scanner/    Pantalla principal: input con autofocus + flujo peso para códigos nuevos
 dashboard/  Inicio con accesos directos
-products/   Listado de productos del workspace
-history/    Tabla de escaneos + botón de exportación XLSX
+products/   Listado + edición inline (PATCH) + eliminación con confirmación (DELETE)
+history/    Tabla de escaneos + eliminación con confirmación (DELETE) + exportación XLSX
 reports/    Servicio de descarga del Excel
-shared/     Modelos TS, layout/navbar, directiva autofocus
+shared/     Modelos TS, layout/navbar, directiva autofocus, api-error (errores HTTP → mensajes)
 ```
 
 - El interceptor HTTP añade `withCredentials: true` a todas las llamadas.
 - El guard funcional protege rutas; el backend vuelve a validar siempre.
 - Sin librerías UI externas: SCSS propio (paleta fría: blanco/azules).
+- Corrección/borrado: edición en tarjeta inline y confirmación inline (sin
+  modales). Tras cada operación la lista se actualiza en caliente (signals),
+  sin recargar la página. Los errores 409/404 muestran el `detail` en español
+  del backend vía `shared/api-error.ts`; 422/401/red tienen mensajes propios.
+- El frontend nunca recalcula `weight_kg`: lo muestra tal como lo devuelve
+  la API (el backend es la autoridad de conversión).
+- Tests de componentes con `HttpTestingController` (Karma/Jasmine; en
+  Windows sin Chrome usar Edge vía `CHROME_BIN`) y E2E real de la UI con
+  `scripts/e2e-ui.mjs` (Edge headless por CDP, sin dependencias).
 
 ## Endpoints
 
-| Método | Ruta                      | Auth | Descripción                                  |
-| ------ | ------------------------- | ---- | -------------------------------------------- |
-| GET    | `/api/health`             | No   | Estado de la API y la BD                     |
-| POST   | `/api/auth/login`         | No   | Login; fija cookie HttpOnly                  |
-| POST   | `/api/auth/logout`        | No   | Borra la cookie                              |
-| GET    | `/api/auth/me`            | Sí   | Usuario actual (+ workspace)                 |
-| POST   | `/api/scans`              | Sí   | Flujo de escaneo (ver arriba)                |
-| GET    | `/api/scans`              | Sí   | Historial del workspace, más reciente primero|
-| GET    | `/api/products`           | Sí   | Productos del workspace                      |
-| GET    | `/api/products/{id}`      | Sí   | Producto por id (404 si es de otro workspace)|
-| GET    | `/api/reports/scans.xlsx` | Sí   | Descarga del historial en Excel              |
+| Método | Ruta                      | Auth | Descripción                                       |
+| ------ | ------------------------- | ---- | ------------------------------------------------- |
+| GET    | `/api/health`             | No   | Estado de la API y la BD                          |
+| POST   | `/api/auth/login`         | No   | Login; fija cookie HttpOnly                       |
+| POST   | `/api/auth/logout`        | No   | Borra la cookie                                   |
+| GET    | `/api/auth/me`            | Sí   | Usuario actual (+ workspace)                      |
+| POST   | `/api/scans`              | Sí   | Flujo de escaneo (ver arriba)                     |
+| GET    | `/api/scans`              | Sí   | Historial del workspace, más reciente primero     |
+| DELETE | `/api/scans/{id}`         | Sí   | Elimina un escaneo incorrecto (204; 404 cross-ws) |
+| GET    | `/api/products`           | Sí   | Productos del workspace                           |
+| GET    | `/api/products/{id}`      | Sí   | Producto por id (404 si es de otro workspace)     |
+| PATCH  | `/api/products/{id}`      | Sí   | Corrección parcial (409 si barcode duplicado)     |
+| DELETE | `/api/products/{id}`      | Sí   | Solo sin escaneos (409 si tiene historial)        |
+| GET    | `/api/reports/scans.xlsx` | Sí   | Descarga del historial en Excel                   |
+
+## Corrección y eliminación (decisiones de diseño)
+
+1. **Producto ≠ scan.** El producto es la ficha de un código; el scan es un
+   evento histórico. Editar un producto nunca modifica scans.
+2. **`barcode_raw` editable.** Los scans referencian `product_id` (FK), no el
+   texto del código. Al corregir un barcode no se toca ningún scan; el
+   historial, que se construye vía JOIN al producto, muestra el dato
+   corregido — justo lo esperado al corregir un error de captura. Cambiar a
+   un barcode ya usado en el mismo workspace devuelve **409**.
+3. **Peso al actualizar.** Si PATCH trae `weight_value` y/o `weight_unit`,
+   `weight_kg` se recalcula combinando lo enviado con lo almacenado, usando
+   el mismo `services/weight.py` (sin duplicar conversión).
+4. **Borrado de productos protegido.** Solo se elimina un producto **sin
+   escaneos**; con historial → **409** y mensaje indicando eliminar primero
+   los scans. Borrar el historial es así una decisión explícita, scan a scan.
+   No hay soft delete: la política 409 es suficiente y más simple. No
+   requirió migración (sin cambios de esquema).
+5. **Scans inmutables.** No existe `PATCH /api/scans/{id}` a propósito: un
+   evento pasado no se edita; la corrección es eliminarlo y re-escanear.
+6. **Errores de dominio.** Los servicios lanzan `NotFoundError` /
+   `ConflictError` (`services/errors.py`) y `main.py` los traduce a 404/409
+   con exception handlers: los servicios no conocen HTTP.
 
 ## Preparado para el futuro (sin implementar)
 
