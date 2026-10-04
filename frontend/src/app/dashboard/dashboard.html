@@ -1,0 +1,27 @@
+<div class="page">
+  <h1 class="page-title">Hola, {{ auth.user()?.username }}</h1>
+  <p class="page-subtitle">
+    Workspace: <strong>{{ auth.user()?.workspace_name }}</strong>
+  </p>
+
+  <a class="card scan-cta" routerLink="/escanear">
+    <span class="scan-cta-icon">▦</span>
+    <span>
+      <span class="scan-cta-title">Escanear código</span>
+      <span class="scan-cta-text">
+        Lee un código con el lector USB: si es nuevo solo pedirá el peso una vez.
+      </span>
+    </span>
+  </a>
+
+  <div class="dashboard-grid">
+    <a class="card nav-card" routerLink="/historial">
+      <h2 class="nav-card-title">Historial</h2>
+      <p class="nav-card-text">Consulta los escaneos realizados y expórtalos a Excel.</p>
+    </a>
+    <a class="card nav-card" routerLink="/productos">
+      <h2 class="nav-card-title">Productos</h2>
+      <p class="nav-card-text">Códigos registrados con su peso normalizado en kg.</p>
+    </a>
+  </div>
+</div>

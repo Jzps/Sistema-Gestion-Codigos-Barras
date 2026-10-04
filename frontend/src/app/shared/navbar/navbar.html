@@ -1,0 +1,18 @@
+<header class="navbar">
+  <div class="navbar-inner">
+    <a class="brand" routerLink="/">SGCBP</a>
+
+    <nav class="links">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
+      <a routerLink="/escanear" routerLinkActive="active">Escanear</a>
+      <a routerLink="/historial" routerLinkActive="active">Historial</a>
+      <a routerLink="/productos" routerLinkActive="active">Productos</a>
+    </nav>
+
+    <div class="user-area">
+      <span class="workspace">{{ auth.user()?.workspace_name }}</span>
+      <span class="username">{{ auth.user()?.username }}</span>
+      <button class="btn btn-outline btn-logout" type="button" (click)="logout()">Salir</button>
+    </div>
+  </div>
+</header>

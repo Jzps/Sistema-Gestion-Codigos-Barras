@@ -1,0 +1,82 @@
+.navbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.navbar-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-decoration: none;
+}
+
+.links {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.links a {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.links a:hover {
+  background: var(--accent);
+  color: var(--primary-dark);
+}
+
+.links a.active {
+  background: var(--accent);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.workspace {
+  color: var(--muted);
+}
+
+.username {
+  font-weight: 600;
+}
+
+.btn-logout {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .navbar-inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 16px;
+    gap: 8px;
+  }
+
+  .links {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+}

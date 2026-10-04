@@ -1,0 +1,52 @@
+<div class="page">
+  <div class="history-header">
+    <div>
+      <h1 class="page-title">Historial de escaneos</h1>
+      <p class="page-subtitle">Eventos de tu workspace, más recientes primero.</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="export()">Exportar Excel</button>
+  </div>
+
+  @if (error()) {
+    <div class="alert-error">{{ error() }}</div>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="empty-state">Cargando…</p>
+    } @else if (rows().length === 0) {
+      <p class="empty-state">Aún no hay escaneos registrados.</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Peso</th>
+              <th>Unidad</th>
+              <th>Peso (kg)</th>
+              <th>Usuario</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr>
+                <td>{{ row.scanned_at | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ row.scanned_at | date: 'HH:mm:ss' }}</td>
+                <td class="mono">{{ row.barcode_raw }}</td>
+                <td>{{ row.product_name || '—' }}</td>
+                <td>{{ row.weight_value | number: '1.0-4' }}</td>
+                <td>{{ row.weight_unit }}</td>
+                <td>{{ row.weight_kg | number: '1.0-3' }}</td>
+                <td>{{ row.username }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

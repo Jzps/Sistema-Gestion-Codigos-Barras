@@ -1,0 +1,43 @@
+<div class="page">
+  <h1 class="page-title">Productos</h1>
+  <p class="page-subtitle">Códigos registrados en tu workspace con su peso normalizado.</p>
+
+  @if (error()) {
+    <div class="alert-error">{{ error() }}</div>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="empty-state">Cargando…</p>
+    } @else if (products().length === 0) {
+      <p class="empty-state">Todavía no hay productos. Escanea un código para crear el primero.</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Peso</th>
+              <th>Unidad</th>
+              <th>Peso (kg)</th>
+              <th>Registrado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (product of products(); track product.id) {
+              <tr>
+                <td class="mono">{{ product.barcode_raw }}</td>
+                <td>{{ product.product_name || '—' }}</td>
+                <td>{{ product.weight_value | number: '1.0-4' }}</td>
+                <td>{{ product.weight_unit }}</td>
+                <td>{{ product.weight_kg | number: '1.0-3' }}</td>
+                <td>{{ product.created_at | date: 'dd/MM/yyyy' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

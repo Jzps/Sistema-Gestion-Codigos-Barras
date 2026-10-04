@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / Angular
+node_modules/
+frontend/dist/
+.angular/
+
+# Entorno / secretos
+.env
+
+# SO / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Varios
+*.log
