@@ -86,6 +86,15 @@ shared/     Modelos TS, layout/navbar, directiva autofocus, api-error (errores H
   del backend vía `shared/api-error.ts`; 422/401/red tienen mensajes propios.
 - El frontend nunca recalcula `weight_kg`: lo muestra tal como lo devuelve
   la API (el backend es la autoridad de conversión).
+- **Entornos**: `src/environments/environment.ts` (desarrollo) y
+  `environment.prod.ts` (producción), intercambiados por `fileReplacements` en
+  la configuración `production` de `angular.json`. El build de producción se
+  hace con `npm run build:prod`, que exige `API_URL`, genera el fichero de
+  entorno y verifica que el bundle no contiene direcciones locales.
+- **Foco del escáner**: el campo de código conserva siempre el foco. El campo
+  de peso no lleva `appAutofocus` a propósito: el lector USB escribe en el
+  elemento con el foco y, de stealing, el siguiente código de barras acabaría
+  guardado como peso.
 - Tests de componentes con `HttpTestingController` (Karma/Jasmine; en
   Windows sin Chrome usar Edge vía `CHROME_BIN`) y E2E real de la UI con
   `scripts/e2e-ui.mjs` (Edge headless por CDP, sin dependencias).
@@ -130,9 +139,37 @@ shared/     Modelos TS, layout/navbar, directiva autofocus, api-error (errores H
    `ConflictError` (`services/errors.py`) y `main.py` los traduce a 404/409
    con exception handlers: los servicios no conocen HTTP.
 
+## Configuración de producción (Render + Neon)
+
+La misma imagen sirve para desarrollo y producción: todo se decide por
+variables de entorno (`app/core/config.py`, `pydantic-settings`).
+
+| Variable | Desarrollo | Producción | Secreto |
+| --- | --- | --- | --- |
+| `ENV` | `development` | `production` | no |
+| `DATABASE_URL` | Postgres de Docker | Neon (`postgresql+psycopg://…?sslmode=require`) | **sí** |
+| `SECRET_KEY` | clave de ejemplo | `secrets.token_hex(32)` (la genera Render) | **sí** |
+| `COOKIE_SECURE` | `false` | `true` | no |
+| `CORS_ORIGINS` | `http://localhost:4200,…` | dominio público del frontend | no |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | `0.0.0.0` / el que asigna Render | no |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `720` | `720` | no |
+
+**Barrera de seguridad**: con `ENV=production` (o con `COOKIE_SECURE=true`) un
+validador de `Settings` aborta el arranque si `SECRET_KEY` es la clave de
+desarrollo, si `COOKIE_SECURE` es `false` o si `CORS_ORIGINS` apunta a
+localhost. Es preferible que el proceso muera a que sirva sesiones firmadas
+con una clave pública del repositorio.
+
+**Frontend**: el bundle de producción se genera con `API_URL` (URL de la API
+sin `/api`); `scripts/build-prod.mjs` valida la variable, escribe
+`environment.prod.ts` y comprueba que el bundle no lleve direcciones locales.
+
+Procedimiento completo, con los dos servicios de Render y los pasos de Neon:
+`docs/setup-deploy.md`.
+
 ## Preparado para el futuro (sin implementar)
 
 - `barcode_type` / `product_identifier` en `products` → parser GS1 (Fase 4).
-- `backend/Dockerfile` → despliegue en Render (Fase 3).
+- `backend/Dockerfile` + `render.yaml` → despliegue en Render + Neon.
 - `role` en `users` → permisos por rol.
-- Configuración por entorno vía `.env` → mismo binario en dev/prod.
+- Configuración por entorno vía variables de entorno → mismo binario en dev/prod.

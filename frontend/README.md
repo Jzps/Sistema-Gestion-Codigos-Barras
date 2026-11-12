@@ -1,59 +1,58 @@
-# Frontend
+# Frontend — SGCBP (Angular 20)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.5.
+SPA de la aplicación SGCBP. Sin librerías UI externas: SCSS propio y
+componentes standalone.
 
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Comandos
 
 ```bash
-ng generate component component-name
+npm install                # una sola vez
+npm start                  # servidor de desarrollo en http://localhost:4200
+npm run build              # build de verificación (configuración development)
+npm run build:prod         # build de PRODUCCIÓN (exige la variable API_URL)
+npm test                   # tests unitarios (Karma + Jasmine)
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+En Windows sin Chrome instalado, apunta Karma a Edge (Chromium):
 
 ```bash
-ng generate --help
+CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
+  npx ng test --watch=false --browsers=ChromeHeadless
 ```
 
-## Building
+## Entornos
 
-To build the project run:
+| Fichero | Cuándo se usa | `apiUrl` |
+| --- | --- | --- |
+| `src/environments/environment.ts` | desarrollo (`ng serve`, `ng build`) | `http://localhost:8000/api` |
+| `src/environments/environment.prod.ts` | producción (`ng build --configuration production`) | la definida por `API_URL` |
+
+`angular.json` sustituye un fichero por otro en la configuración `production`
+(`fileReplacements`). **El build de producción se hace siempre con
+`npm run build:prod`** (`scripts/build-prod.mjs`), que:
+
+1. exige la variable de entorno `API_URL` (URL de la API **sin** `/api`),
+2. genera `environment.prod.ts` con esa URL,
+3. compila,
+4. comprueba que el bundle **no** contiene direcciones `localhost`.
 
 ```bash
-ng build
+API_URL=https://sgcbp-api.onrender.com npm run build:prod
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+El resultado se publica en `dist/frontend/browser`.
 
-## Running unit tests
+## Estructura
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
+```text
+src/app/
+├── auth/       login, AuthService (sesión), guard, interceptor (withCredentials)
+├── scanner/    pantalla principal: escaneo + alta de peso
+├── products/   listado + edición inline + borrado con confirmación
+├── history/    tabla de escaneos + borrado + exportación XLSX
+├── dashboard/  panel de inicio
+├── reports/    servicio de descarga del Excel
+└── shared/     modelos TS, navbar, directiva de autofocus, api-error
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Detalles de la arquitectura completa en `docs/architecture.md` (raíz del repo).

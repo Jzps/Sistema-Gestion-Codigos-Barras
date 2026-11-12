@@ -94,6 +94,14 @@ window.__e2e = {
     return [...document.querySelectorAll('tbody tr')].filter(tr =>
       [...tr.querySelectorAll('td')].some(td => td.textContent.trim() === cellText)).length;
   },
+  activeId() {
+    const el = document.activeElement;
+    return el ? (el.id || el.tagName) : null;
+  },
+  inputValue(sel) {
+    const el = document.querySelector(sel);
+    return el ? el.value : null;
+  },
   bodyText() { return document.body.innerText; },
   pressEnter(sel) {
     const el = document.querySelector(sel);
@@ -118,6 +126,13 @@ async function main() {
   if (!health || health.status !== 'ok') {
     throw new Error('La API no responde en :8000. Ejecuta ./start.sh primero.');
   }
+
+  // Códigos de la prueba. Se declaran aqui (fuera del try) porque la
+  // limpieza del bloque finally los necesita para borrar todo lo creado.
+  const code = `E2E-${Date.now() % 1000000}`;
+  const otherCode = `${code}-B`;
+  const nameEdited = 'E2E Corregido';
+  console.log(`Código de prueba: ${code}`);
 
   const profile = mkdtempSync(join(tmpdir(), 'sgcbp-e2e-'));
   const edge = spawn(EDGE, [
@@ -159,11 +174,6 @@ async function main() {
     await cdp('Page.enable');
     await cdp('Runtime.enable');
 
-    const code = `E2E-${Date.now() % 1000000}`;
-    const otherCode = `${code}-B`;
-    const nameEdited = 'E2E Corregido';
-    console.log(`Código de prueba: ${code}`);
-
     // -- 1. Login desde la UI ------------------------------------------------
     await navigate(APP);
     await waitFor('formulario de login', `!!document.querySelector('input[name="username"]')`);
@@ -179,6 +189,37 @@ async function main() {
     await js(`__e2e.setValue('#barcode', '${code}')`);
     await js(`__e2e.pressEnter('#barcode')`);
     await waitFor('pide peso (producto nuevo)', bodyIncludes('Producto no registrado'));
+
+    // -- 2b. El foco NUNCA debe saltar al campo de peso ----------------------
+    //     El lector USB escribe en el elemento que tiene el foco. Si el foco
+    //     estuviera en #weight, el siguiente codigo de barras se guardaria
+    //     como PESO del producto pendiente (corrupcion silenciosa de datos).
+    await sleep(600);
+    const focusedId = await js(`__e2e.activeId()`);
+    check(
+      'con el formulario de peso abierto el foco sigue en el campo de codigo',
+      focusedId === 'barcode',
+      `foco real: ${focusedId}`,
+    );
+
+    // Simula la entrada de un lector USB (teclado) con el formulario abierto.
+    await cdp('Input.insertText', { text: '7501234567890' });
+    await sleep(300);
+    const weightValue = await js(`__e2e.inputValue('#weight')`);
+    const barcodeValue = await js(`__e2e.inputValue('#barcode')`);
+    check(
+      'un escaneo con el formulario de peso abierto NO acaba en el campo de peso',
+      String(weightValue).trim() === '',
+      `valor real en #weight: "${weightValue}"`,
+    );
+    check(
+      'el escaneo con el formulario abierto va al campo de codigo',
+      String(barcodeValue).trim() === '7501234567890',
+      `valor real en #barcode: "${barcodeValue}"`,
+    );
+    // Limpiar el campo de codigo: el flujo sigue con el alta de peso.
+    await js(`__e2e.setValue('#barcode', '')`);
+
     await js(`__e2e.setValue('#weight', '44.09')`);
     await js(`__e2e.setValue('#unit', 'LB')`);
     await js(`__e2e.clickButton('Guardar y registrar')`);
@@ -272,25 +313,38 @@ async function main() {
       check(`layout de /${page} no se rompe a 480px (overflow-x: ${overflow}px)`, overflow <= 2);
     }
     await cdp('Emulation.clearDeviceMetricsOverride');
-
-    // Limpieza: eliminar también el producto auxiliar.
-    await navigate(`${APP}/historial`);
-    const auxScans = await js(`__e2e.rowsWithCell('${otherCode}')`).catch(() => 0);
-    if (auxScans > 0) {
-      await js(`__e2e.clickRowButton('${otherCode}', 'Eliminar')`);
-      await waitFor('confirmación', bodyIncludes('¿Seguro que deseas eliminar'));
-      await js(`__e2e.clickButton('Sí, eliminar')`);
-      await sleep(800);
-    }
-    await navigate(`${APP}/productos`);
-    const auxVisible = await js(bodyIncludes(otherCode));
-    if (auxVisible) {
-      await js(`__e2e.clickRowButton('${otherCode}', 'Eliminar')`);
-      await waitFor('confirmación', bodyIncludes('¿Seguro que deseas eliminar'));
-      await js(`__e2e.clickButton('Sí, eliminar')`);
-      await sleep(800);
-    }
   } finally {
+    // -- Limpieza determinista (se ejecuta SIEMPRE, incluso si un check falla).
+    //     Se borra por API con la sesion del navegador: es fiable y no depende
+    //     de la paginacion de la UI. Antes esta limpieza era incompleta y
+    //     dejaba productos "E2E-*-B" huerfanos en la base de datos.
+    try {
+      const leftover = await js(`(async () => {
+        const codes = ${JSON.stringify([code, otherCode])};
+        const del = async (url) => {
+          try { await fetch(url, { method: 'DELETE', credentials: 'include' }); } catch (e) {}
+        };
+        const get = async (url) => {
+          const r = await fetch(url, { credentials: 'include' });
+          return r.ok ? await r.json() : [];
+        };
+        const scans = await get('${API}/scans?limit=1000');
+        for (const s of scans) if (codes.includes(s.barcode_raw)) await del('${API}/scans/' + s.id);
+        const products = await get('${API}/products?limit=1000');
+        for (const p of products) if (codes.includes(p.barcode_raw)) await del('${API}/products/' + p.id);
+        const scansLeft = (await get('${API}/scans?limit=1000')).filter((s) => codes.includes(s.barcode_raw));
+        const productsLeft = (await get('${API}/products?limit=1000')).filter((p) => codes.includes(p.barcode_raw));
+        return { scans: scansLeft.length, products: productsLeft.length };
+      })()`);
+      check(
+        'la prueba no deja registros basura en la base de datos',
+        leftover.scans === 0 && leftover.products === 0,
+        `scans=${leftover.scans} products=${leftover.products}`,
+      );
+    } catch (err) {
+      check('la prueba no deja registros basura en la base de datos', false, err.message);
+    }
+
     try {
       ws?.close();
     } catch {}

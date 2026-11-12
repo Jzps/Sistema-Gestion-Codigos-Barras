@@ -35,10 +35,21 @@
         El código <span class="mono">{{ pendingBarcode() }}</span> es nuevo. Introduce su peso una
         sola vez; los próximos escaneos lo recuperarán automáticamente.
       </p>
+      <p class="card-hint">
+        El foco sigue en el campo de código para que el lector USB no se equivoque: haz clic en
+        <strong>Peso</strong> para escribirlo a mano.
+      </p>
 
       <div class="weight-grid">
         <div class="field">
           <label for="weight">Peso</label>
+          <!--
+            SIN appAutofocus a propósito: el lector USB escribe en el elemento
+            enfocado. Si el foco estuviera aquí, el siguiente código de barras
+            se escribiría en el campo de peso. El foco debe permanecer SIEMPRE
+            en el campo de código (ver scanner.ts::focusBarcode).
+            El peso se teclea a mano.
+          -->
           <input
             id="weight"
             class="input"
@@ -49,7 +60,6 @@
             min="0"
             step="any"
             placeholder="Ej. 44.09"
-            appAutofocus
           />
         </div>
 

@@ -2,11 +2,24 @@
 
 Toda la configuracion sensible llega por variables de entorno (o archivo .env).
 Ver .env.example en la raiz del repositorio.
+
+En produccion (Render) la validacion es estricta: si `ENV=production` (o si se
+activa `COOKIE_SECURE`) la aplicacion NO arranca con la configuracion insegura
+de desarrollo. Es una salvaguarda para que un despliegue no expose sesiones
+firmadas con una clave publica del repositorio.
 """
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Clave de desarrollo: publica y NO debe usarse en produccion.
+INSECURE_DEFAULT_SECRET = "dev-only-insecure-key-change-me-32b"
+MIN_SECRET_LENGTH = 32
+
+# Origenes que nunca son validos para una app servida por internet.
+LOCAL_ORIGINS = ("localhost", "127.0.0.1", "0.0.0.0", "[::1]")
 
 
 class Settings(BaseSettings):
@@ -18,11 +31,12 @@ class Settings(BaseSettings):
     )
 
     # Base de datos
+    # En Neon: postgresql+psycopg://USER:PASSWORD@ep-xxx-pooler.REGION.aws.neon.tech/DBNAME?sslmode=require
     DATABASE_URL: str = "postgresql+psycopg://sgcbp:sgcbp@localhost:5432/sgcbp"
 
     # Seguridad / sesion
     # Clave dev de >=32 bytes para evitar avisos de HMAC; cambiar en .env real.
-    SECRET_KEY: str = "dev-only-insecure-key-change-me-32b"
+    SECRET_KEY: str = INSECURE_DEFAULT_SECRET
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
     COOKIE_NAME: str = "sgcbp_session"
@@ -31,7 +45,13 @@ class Settings(BaseSettings):
     # CORS: lista separada por comas
     CORS_ORIGINS: str = "http://localhost:4200,http://127.0.0.1:4200"
 
+    # Entorno: "development" | "production". En "production" la configuracion
+    # insegura de desarrollo hace fallar el arranque (ver _check_production).
     ENV: str = "development"
+
+    # Servidor: Render asigna PORT y exige escuchar en 0.0.0.0.
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
 
     # Seed de desarrollo (solo datos de ejemplo)
     SEED_WORKSPACE_NAME: str = "Demo Workspace"
@@ -42,6 +62,51 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENV.strip().lower() == "production"
+
+    @model_validator(mode="after")
+    def _check_production(self) -> "Settings":
+        """Impide arrancar en produccion con la configuracion insegura.
+
+        Se activa con ENV=production o al activar COOKIE_SECURE (implica HTTPS,
+        es decir, un despliegue real). El proceso muere al importar la app:
+        es preferible a servir sesiones falsificables.
+        """
+        if not (self.is_production or self.COOKIE_SECURE):
+            return self
+
+        problems: list[str] = []
+
+        if self.SECRET_KEY == INSECURE_DEFAULT_SECRET:
+            problems.append(
+                "SECRET_KEY sigue siendo la clave de desarrollo; define una propia "
+                f"(python -c \"import secrets; print(secrets.token_hex(32))\")"
+            )
+        elif len(self.SECRET_KEY) < MIN_SECRET_LENGTH:
+            problems.append(f"SECRET_KEY debe tener al menos {MIN_SECRET_LENGTH} caracteres")
+
+        if not self.COOKIE_SECURE:
+            problems.append("COOKIE_SECURE debe ser true en produccion (la cookie necesita HTTPS)")
+
+        origins = self.cors_origin_list
+        if not origins:
+            problems.append("CORS_ORIGINS debe incluir el dominio publico del frontend")
+        elif any(
+            any(local in origin.lower() for local in LOCAL_ORIGINS) for origin in origins
+        ):
+            problems.append(
+                "CORS_ORIGINS no puede apuntar a localhost en produccion; "
+                "usa el dominio publico del frontend"
+            )
+
+        if problems:
+            raise ValueError(
+                "Configuracion de produccion invalida: " + "; ".join(problems)
+            )
+        return self
 
 
 @lru_cache

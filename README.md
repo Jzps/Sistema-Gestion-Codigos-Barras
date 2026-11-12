@@ -11,7 +11,7 @@ Excel (`.xlsx`), con aislamiento lógico de datos por workspace.
 Flujo manual actual: escanear productos y registrar/recordar su peso a mano.
 Con SGCBP:
 
-```
+```text
 ESCANEAR → ¿código existe?
              ├── NO → pedir peso (kg/lb) → convertir → guardar producto → registrar escaneo
              └── SÍ → recuperar peso almacenado → registrar escaneo
@@ -31,13 +31,13 @@ HISTORIAL → EXPORTAR XLSX
 
 ## Arquitectura
 
-```
+```text
 Lector USB (modo teclado) → Navegador → Angular → FastAPI → PostgreSQL
 ```
 
 Monorepo:
 
-```
+```text
 ├── backend/     # API FastAPI (app/) + tests + alembic
 ├── frontend/    # SPA Angular
 ├── docs/        # requirements, architecture, database, setup
@@ -47,7 +47,7 @@ Monorepo:
 
 ## Requisitos
 
-- Python 3.11+ · Node 20+ · Docker Desktop
+- Python 3.11+ · Node 20+ (22 recomendado) · Docker Desktop
 
 ## Puesta en marcha
 
@@ -107,6 +107,8 @@ Creadas por `python -m app.seed` (solo entorno local, configurables en `.env`):
 2. En la pantalla **Escanear**, escribe un código (o usa un lector USB: actúa
    como teclado y termina con Enter) y pulsa Enter.
 3. Código nuevo → el sistema pide peso y unidad (KG/LB) → guardar.
+   - El foco **permanece en el campo de código** (para que el lector USB no se
+     equivoque): haz clic en **Peso** para escribir el peso a mano.
 4. Escanea el mismo código otra vez → el peso aparece al instante.
 5. **Historial** muestra fecha, hora, código, producto, peso, unidad y usuario;
    desde ahí se descarga el `.xlsx`.
@@ -127,13 +129,39 @@ CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
   npx ng test --watch=false --browsers=ChromeHeadless   # Windows sin Chrome
 
 # E2E de la interfaz (con ./start.sh en marcha), desde la raíz:
-node scripts/e2e-ui.mjs
+node scripts/e2e-ui.mjs      # Edge headless vía CDP; 15 comprobaciones
 ```
+
+## Despliegue en producción (Render + Neon)
+
+La V1 está preparada para publicarse con **Neon** (PostgreSQL) + **Render**
+(Docker para la API y Static Site para Angular). La guía completa —variables de
+entorno, migraciones, orden de creación de los servicios, verificación— está en
+**[docs/setup-deploy.md](docs/setup-deploy.md)**.
+
+Resumen de lo esencial:
+
+```bash
+# Build de producción del frontend (genera environment.prod.ts desde API_URL
+# y comprueba que el bundle no lleva direcciones locales):
+cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
+```
+
+- **Backend**: `backend/Dockerfile` (aplica las migraciones y sirve en
+  `0.0.0.0:$PORT`). Variables: `ENV=production`, `DATABASE_URL` (Neon),
+  `SECRET_KEY` (secreto), `COOKIE_SECURE=true`, `CORS_ORIGINS`.
+- **Frontend**: `Render Static Site` con *Root Directory* `frontend`, build
+  command `npm ci && npm run build:prod` y publish path `dist/frontend/browser`.
+- **Configuración insegura**: con `ENV=production` (o `COOKIE_SECURE=true`) la
+  API **no arranca** si `SECRET_KEY` es la de ejemplo, si las cookies no son
+  seguras o si `CORS_ORIGINS` apunta a localhost.
+- `render.yaml` incluye un *blueprint* equivalente con los dos servicios.
 
 ## Documentación
 
 - [docs/requirements.md](docs/requirements.md) — requisitos funcionales y alcance V1
 - [docs/architecture.md](docs/architecture.md) — arquitectura y decisiones
 - [docs/database.md](docs/database.md) — modelo de datos
-- [docs/setup.md](docs/setup.md) — guía de instalación detallada
+- [docs/setup.md](docs/setup.md) — guía de instalación detallada (local)
+- [docs/setup-deploy.md](docs/setup-deploy.md) — despliegue en Render + Neon
 - [AGENTS.md](AGENTS.md) — memoria técnica del proyecto (reglas para agentes)

@@ -17,7 +17,14 @@ _connect_args = (
     {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 )
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args=_connect_args)
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    # Neon (y los proxies en general) cierran conexiones inactivas: reciclar
+    # el pool evita "server closed the connection unexpectedly" tras reposo.
+    pool_recycle=300,
+    connect_args=_connect_args,
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

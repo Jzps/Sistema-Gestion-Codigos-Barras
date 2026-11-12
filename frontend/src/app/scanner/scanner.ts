@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 
 import { AutofocusDirective } from '../shared/autofocus.directive';
+import { describeApiError } from '../shared/api-error';
 import { ScanResponse, ScanRow } from '../shared/models';
 import { ScanService } from './scan.service';
 
@@ -16,6 +17,12 @@ import { ScanService } from './scan.service';
  *
  * Tras cada escaneo el campo de código se limpia y recupera el foco para
  * encadenar lecturas rápidas con el lector USB (que actúa como teclado).
+ *
+ * REGLA CRÍTICA: el foco debe permanecer SIEMPRE en el campo de código.
+ * El lector USB escribe en el elemento que tiene el foco; si el foco estuviera
+ * en el campo de peso, el siguiente código de barras se guardaría como peso
+ * del producto anterior. Por eso el campo de peso NO tiene autofocus (ver
+ * scanner.html) y `focusBarcode()` se llama tras cada operación.
  */
 @Component({
   selector: 'app-scanner',
@@ -80,6 +87,14 @@ export class Scanner implements OnInit {
       next: (res) => {
         this.loading.set(false);
         if (res.status === 'needs_weight') {
+          // Si cambia el código pendiente, se limpian los campos de peso:
+          // un peso capturado para el código anterior no puede arrastrarse
+          // al nuevo producto.
+          if (this.pendingBarcode() !== res.barcode) {
+            this.weightValue = null;
+            this.weightUnit = 'KG';
+            this.productName = '';
+          }
           this.pendingBarcode.set(res.barcode);
           this.result.set(null);
         } else {
@@ -90,9 +105,11 @@ export class Scanner implements OnInit {
         this.barcode = '';
         this.focusBarcode();
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.error.set('No se pudo procesar el escaneo. Inténtalo de nuevo.');
+        this.error.set(
+          describeApiError(err, 'No se pudo procesar el escaneo. Inténtalo de nuevo.'),
+        );
         this.barcode = '';
         this.focusBarcode();
       },

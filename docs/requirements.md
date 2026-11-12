@@ -51,10 +51,31 @@ queda en un historial exportable a Excel.
 | RF-22 | Corregir producto (PATCH: barcode, nombre, identificadores, peso)    | ✅ API + UI |
 | RF-23 | Eliminar producto SOLO sin escaneos (409 si tiene historial)         | ✅ API + UI |
 | RF-24 | Eliminar scan incorrecto sin tocar el producto (204)                 | ✅ API + UI |
+| RF-25 | El foco del escáner NUNCA pasa al campo de peso (lector USB)         | ✅ API + UI |
+| RF-26 | Arranque en producción con configuración segura (sin secreto de ejemplo) | ✅ |
 
 RF-22/23 se consumen desde la pestaña **Productos** (edición inline con
 confirmación) y RF-24 desde **Historial** (eliminación con confirmación).
 Los errores 409/404 se muestran al usuario con mensajes comprensibles.
+
+RF-25 es una regla de integridad de datos: el lector USB escribe en el
+elemento que tiene el foco, por lo que el foco debe permanecer siempre en el
+campo de código. Si el foco estuviera en el campo de peso, el siguiente código
+de barras se guardaría como peso del producto anterior. Lo verifica el E2E.
+
+RF-26: con `ENV=production` la API no arranca si `SECRET_KEY` es la de
+desarrollo, si `COOKIE_SECURE` es `false` o si `CORS_ORIGINS` apunta a
+localhost.
+
+## Fuera de alcance en esta V1 (decisiones explícitas)
+
+- **Gestión de usuarios / registro público**: la aplicación es de uso
+  individual. El usuario inicial se crea con `python -m app.seed`; no hay
+  endpoints ni pantallas para crear, listar ni gestionar usuarios.
+- **Paginación y búsqueda** en historial y productos (el historial muestra los
+  200 escaneos más recientes y el catálogo los 500 primeros).
+- Despliegue efectivo (la configuración está preparada, ver
+  `docs/setup-deploy.md`), parser GS1, estadísticas y gráficos.
 
 ## Reglas de dominio
 
@@ -82,3 +103,8 @@ Los errores 409/404 se muestran al usuario con mensajes comprensibles.
    caso contrario). Los scans son eventos inmutables: no se editan; la
    corrección es eliminar el scan incorrecto y volver a escanear. Eliminar
    un scan nunca toca el producto.
+8. **Foco del escáner**: el lector USB (modo teclado) escribe en el elemento
+   con el foco. El foco permanece SIEMPRE en el campo de código, también con el
+   formulario de peso abierto; el peso se teclea a mano. Si cambia el código
+   pendiente, los campos de peso se limpian (un peso capturado para un código
+   no puede arrastrarse a otro).

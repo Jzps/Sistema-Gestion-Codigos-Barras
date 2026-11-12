@@ -1,0 +1,65 @@
+# Blueprint de Render para SGCBP (Fase 3).
+#
+# Crea dos servicios a partir del monorepo:
+#   - sgcbp-api : web service con Docker (backend FastAPI + PostgreSQL en Neon)
+#   - sgcbp-web : static site (frontend Angular)
+#
+# Uso:  https://render.com/docs/blueprint  ->  New Blueprint Instance  ->  elegir este repo
+#
+# ANTES de aplicar el blueprint, deja estos valores "sync: false" (Render te
+# los pedira al crear el blueprint) y anotalos en un sitio seguro:
+#   - DATABASE_URL  -> cadena de conexion de Neon (ver docs/setup-deploy.md)
+#   - CORS_ORIGINS  -> https://<dominio-publico-de-sgcbp-web>
+#
+# secretKeyValue no se escribe aqui: Render la genera con generateValue.
+services:
+  # ---------------------------------------------------------------------------
+  # Backend: FastAPI en Docker. La base de datos vive en Neon (PostgreSQL).
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: sgcbp-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # free sirve para pruebas; para uso real se recomienda "starter" (el
+    # servicio free se duerme tras 15 min de inactividad).
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # <- cadena de conexion de Neon (CONTRASEÑA SECRETA)
+      - key: SECRET_KEY
+        generateValue: true # Render genera una clave aleatoria segura
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "720"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CORS_ORIGINS
+        sync: false # <- dominio publico del frontend (sin barra final)
+      - key: HOST
+        value: 0.0.0.0
+      # PORT lo asigna Render automaticamente; no definirlo.
+
+  # ---------------------------------------------------------------------------
+  # Frontend: Angular compilado a estaticos (Render Static Site).
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: sgcbp-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build:prod
+    staticPublishPath: ./dist/frontend/browser
+    envVars:
+      - key: API_URL
+        sync: false # <- URL publica de la API, SIN /api y SIN barra final
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # Routing de Angular (SPA): todo se sirve como index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html

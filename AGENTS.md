@@ -22,11 +22,15 @@ es SGCBP; la raíz del repo ES la raíz del monorepo (sin subcarpeta extra).
     comunicación extremo a extremo, pantalla de escaneo.
   - Fase 2: autenticación, usuarios, sesión, aislamiento por workspace,
     historial, exportación XLSX.
+  - Fase 3 (preparado, sin desplegar): configuración de producción del
+    backend y del frontend, `render.yaml` y `docs/setup-deploy.md`.
 - **NO implementar (fuera de V1)**:
-  - Fase 3: despliegue (Neon, Render, frontend público).
   - Fase 4: parser GS1 (GTIN, peso embebido, fechas, seriales, lotes),
     estadísticas, gráficos, chatbot, IA, app móvil.
   - Nunca: microservicios, Kubernetes, Redis, colas, WebSockets, cloud storage.
+  - Gestión de usuarios / registro público: **decidido expresamente NO
+    implementarlo** (app de uso individual). El usuario inicial se crea con
+    `python -m app.seed`.
 
 ## 3. Stack (obligatorio, no cambiar sin razón técnica fuerte)
 
@@ -59,9 +63,14 @@ es SGCBP; la raíz del repo ES la raíz del monorepo (sin subcarpeta extra).
 │   ├── auth/               # login, AuthService, guards, interceptor
 │   ├── scanner/            # pantalla principal (escaneo + alta de peso)
 │   ├── dashboard/  products/  history/  reports/  shared/
-│   └── environments        # apiUrl = http://localhost:8000/api
-├── docs/                   # requirements, architecture, database, setup
+│   └── environments        # environment.ts (dev) + environment.prod.ts (prod)
+├── frontend/scripts/build-prod.mjs  # build de producción: genera
+│                                   # environment.prod.ts desde API_URL y
+│                                   # verifica que el bundle no lleva localhost
+├── docs/                   # requirements, architecture, database, setup,
+│                            # setup-deploy (Render + Neon)
 ├── scripts/e2e-ui.mjs      # verificación E2E de la UI (Edge headless CDP, sin deps)
+├── render.yaml             # blueprint de Render (web service Docker + static site)
 ├── docker-compose.yml      # SOLO PostgreSQL
 ├── start.sh                # arranque único (Git Bash Windows): todo el entorno
 └── .env.example
@@ -130,6 +139,17 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
    - `DELETE /api/scans/{id}` borra solo el evento; el producto queda intacto.
    - **No existe PATCH de scans a propósito**: eventos históricos inmutables;
      corregir = eliminar + re-escanear.
+8. **Foco del escáner (regla dura)**: el lector USB escribe en el elemento que
+   tiene el foco. El foco debe permanecer **SIEMPRE** en el campo de código,
+   incluso con el formulario de peso abierto. El campo de peso **NO** lleva
+   `appAutofocus` (ver `frontend/src/app/scanner/scanner.html`). Si se rompe
+   esta regla, el siguiente código de barras se guarda como peso del producto
+   anterior (corrupción silenciosa). El E2E lo verifica en cada ejecución.
+9. **Configuración de producción**: con `ENV=production` (o `COOKIE_SECURE=true`)
+   la API **no arranca** si `SECRET_KEY` es la de ejemplo, si `COOKIE_SECURE` es
+   false o si `CORS_ORIGINS` apunta a localhost (validador en
+   `app/core/config.py`). Los secretos viven solo en variables de entorno,
+   nunca en el repo.
 
 ## 8. Convenciones de código
 
@@ -145,6 +165,12 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
 - UI en español, paleta fría (variables CSS en `styles.scss`). El escaneo es
   la acción principal: campo de código con autofocus y retorno de foco tras
   cada operación.
+- **Entornos de Angular**: `src/environments/environment.ts` (dev, localhost) y
+  `environment.prod.ts` (prod). El build de producción se hace SIEMPRE con
+  `npm run build:prod` (`frontend/scripts/build-prod.mjs`): exige `API_URL`,
+  genera `environment.prod.ts` y verifica que el bundle no contenga
+  direcciones locales. `angular.json` sustituye `environment.ts` por
+  `environment.prod.ts` en la configuración `production` (fileReplacements).
 - Commits/PR: no hay convención de equipo definida aún.
 - Simplicidad > abstracción: nada de librerías/patrones nuevos sin necesidad.
 
@@ -181,7 +207,8 @@ pytest -q                            # tests (SQLite en memoria, sin Docker)
 ```bash
 npm install
 npm start                            # :4200
-npm run build                        # verificación de build
+npm run build                        # verificación de build (dev)
+npm run build:prod                   # build de PRODUCCIÓN (exige API_URL)
 # Tests (Karma+Jasmine). En esta máquina no hay Chrome: usar Edge (Chromium).
 CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
   npx ng test --watch=false --browsers=ChromeHeadless
@@ -190,32 +217,49 @@ CHROME_BIN='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' \
 ### E2E de la UI (con `./start.sh` en marcha)
 
 ```bash
-node scripts/e2e-ui.mjs              # Edge headless vía CDP; 11 comprobaciones
+node scripts/e2e-ui.mjs              # Edge headless vía CDP; 15 comprobaciones
+```
+
+### Producción (Render + Neon)
+
+```bash
+# Ver docs/setup-deploy.md para el procedimiento completo.
+cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 ```
 
 ## 10. Verificación actual (estado real comprobado)
 
-- `pytest`: 47/47 OK (auth, 401s, conversión KG/LB, flujo escaneo
+- `pytest`: **55/55 OK** (auth, 401s, conversión KG/LB, flujo escaneo
   nuevo/existente, aislamiento entre workspaces, XLSX, PATCH de productos,
-  borrado seguro de productos y scans).
+  borrado seguro de productos y scans, **validación de configuración de
+  producción**).
 - Corrección/borrado verificados en vivo (curl): PATCH nombre+peso LB
   (recalcula `weight_kg`), PATCH barcode, 409 por barcode duplicado, 409 al
   borrar producto con scans, 204 al borrar scan y luego producto, 404 tras
   borrado. Swagger lista PATCH/DELETE con 404/409 documentados.
-- Alembic `upgrade`/`downgrade`/`upgrade` OK contra PostgreSQL 16 en Docker.
+- Alembic: `upgrade`/`downgrade`/`upgrade` OK contra PostgreSQL 16 en Docker
+  (verificado en una BD limpia desechable, sin tocar la BD de trabajo);
+  `alembic check` → "No new upgrade operations detected" (modelos y migraciones
+  en sincronía); `alembic current` → `0001 (head)`.
 - Flujo vivo con curl: login → needs_weight → created (44.09 LB → 19.998888 kg)
   → existing → historial → XLSX válido → logout → 401.
 - CORS :4200→:8000 con credenciales OK; cookie HttpOnly verificada.
-- `ng build` OK (Angular 20).
+- `ng build` OK (Angular 20) y `npm run build:prod` OK: el bundle de
+  producción **no contiene ninguna dirección local** (verificado por grep) y
+  publica en `frontend/dist/frontend/browser`.
 - `./start.sh` OK en Git Bash: levanta todo y CTRL+C deja 8000/4200 libres.
   OJO: uvicorn en el script va SIN --reload a propósito (el reloader
   rearranca al servidor al matarlo externamente y rompe el apagado limpio).
 - Frontend: `ng test` 10/10 OK (products + history con HttpTestingController);
   `ng build` OK. E2E real con `scripts/e2e-ui.mjs` (Edge headless CDP):
-  11/11 OK — login UI, escaneo nuevo/existente, edición con actualización en
+  **15/15 OK** — login UI, escaneo nuevo/existente, **foco del lector USB
+  (el código nunca va al campo de peso)**, edición con actualización en
   caliente, 409 duplicado, 409 borrar producto con scans, borrar scans,
   borrar producto sin scans, escaneo tras editar usa datos actualizados,
-  layout a 480px sin scroll horizontal.
+  layout a 480px sin scroll horizontal y **limpieza sin residuos en la BD**.
+- Validación de producción comprobada: con `ENV=production` la API **falla al
+  arrancar** si `SECRET_KEY` es la de ejemplo, si `COOKIE_SECURE=false` o si
+  `CORS_ORIGINS` apunta a localhost; con configuración correcta arranca.
 
 ## 11. Reglas que el agente NO debe romper
 
@@ -224,21 +268,29 @@ node scripts/e2e-ui.mjs              # Edge headless vía CDP; 11 comprobaciones
    `workspace_id`.
 3. No usar float para pesos ni `Base.metadata.create_all` para el esquema
    real (eso es Alembic; `create_all` solo en tests).
-4. No implementar parser GS1, estadísticas, despliegue ni nada de Fase 3/4
-   aunque "sea útil".
+4. No implementar parser GS1, estadísticas ni nada de Fase 4 aunque "sea
+   útil". El despliegue (Fase 3) solo se *prepara* aquí: no se ejecuta.
 5. No añadir dependencias (ni backend ni frontend) sin justificación.
-6. No hardcodear secretos; todo sensible va por `.env` (en `.gitignore`).
+6. No hardcodear secretos; todo sensible va por variables de entorno (`.env`
+   en local, panel de Render en producción) y nunca al repositorio.
 7. No cambiar el stack ni la estructura de capas sin actualizar este archivo.
 8. Mantener el endpoint de escaneo único salvo que cambie el requisito.
 9. No añadir PATCH/edición de scans (eventos inmutables) ni borrado de
    productos con scans saltándose la política 409.
 10. No duplicar la conversión de pesos: toda recalibración pasa por
     `services/weight.py`.
+11. No romper el foco del escáner (regla 8 de la sección 7) ni relajar la
+    validación de configuración de producción (regla 9 de la sección 7).
+12. No compilar el frontend de producción sin `API_URL`: el bundle publicado
+    nunca debe apuntar a `localhost`.
 
 ## 12. Futuras extensiones previstas (diseño ya preparado, NO implementar)
 
-- **Fase 3**: Neon + Render. `backend/Dockerfile` ya existe; config por env.
+- **Fase 3 (despliegue)**: Neon + Render. Ya está todo preparado
+  (`backend/Dockerfile`, `render.yaml`, `frontend/scripts/build-prod.mjs`,
+  `docs/setup-deploy.md`); falta únicamente ejecutarlo desde el panel.
 - **Fase 4**: parser GS1 sobre `barcode_raw` → rellenar `barcode_type` /
   `product_identifier`; estadísticas y gráficos.
 - Posibles: edición de peso con auditoría, roles con permisos finos,
-  revocación de tokens.
+  revocación de tokens, paginación/búsqueda en historial y productos,
+  gestión de usuarios (decidido NO implementado en esta V1).
