@@ -28,6 +28,8 @@ export class History implements OnInit {
   /** Scan pendiente de confirmación de borrado. */
   readonly deleting = signal<ScanRow | null>(null);
   readonly saving = signal(false);
+  /** Exportación a Excel en curso. */
+  readonly exporting = signal(false);
   readonly actionError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
@@ -35,8 +37,56 @@ export class History implements OnInit {
     this.load();
   }
 
+  /**
+   * Exporta el historial a .xlsx.
+   *
+   * La descarga la hace el navegador a partir del Blob que devuelve la API
+   * (ver ReportsService). Si la API responde 401 (sesión no válida) se
+   * muestra el aviso dentro de la aplicación, sin abandonar la SPA.
+   */
   export(): void {
-    this.reportsService.downloadScansXlsx();
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.clearMessages();
+    this.reportsService.downloadScansXlsx().subscribe({
+      next: (blob) => {
+        this.exporting.set(false);
+        this.saveBlob(blob, this.xlsxFileName());
+      },
+      error: (err) => {
+        this.exporting.set(false);
+        this.actionError.set(
+          describeApiError(err, 'No se pudo exportar el historial a Excel'),
+        );
+      },
+    });
+  }
+
+  /** Guarda el Blob como fichero .xlsx y dispara la descarga. */
+  private saveBlob(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Nombre del fichero exportado. Mismo formato que genera el backend
+   * (scans_AAAAMMDD_HHMMSS.xlsx). No se lee la cabecera Content-Disposition
+   * porque, al ser el frontend y la API de orígenes distintos, el navegador
+   * solo expone las cabeceras que CORS marque como públicas.
+   */
+  private xlsxFileName(): string {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const stamp =
+      `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+      `_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    return `scans_${stamp}.xlsx`;
   }
 
   startDelete(row: ScanRow): void {

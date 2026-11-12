@@ -162,7 +162,14 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
    `onrender.com` está en la Public Suffix List, así que `sgcbp-web...` y
    `sgcbp-api...` son cross-site y con `lax` el navegador no envía la cookie
    → 401 en todos los endpoints protegidos.
-10. **Cambio de contraseña**: `python -m app.reset_admin_password` es el ÚNICO
+10. **Descargas de ficheros**: la descarga del Excel se hace con
+    `HttpClient` (`responseType: 'blob'` + `withCredentials: true`), **nunca**
+    con `window.location.href`. Una navegación top-level a otro origen es un
+    canal de autenticación frágil (el navegador aplica políticas de cookies
+    cross-site más restrictivas) y, si la API responde 401, el usuario abandona
+    la SPA y aterriza en una página JSON. El endpoint sigue exigiendo la
+    cookie de sesión: no se debilita la autenticación.
+11. **Cambio de contraseña**: `python -m app.reset_admin_password` es el ÚNICO
     mecanismo de la V1 para cambiar la contraseña de un usuario existente (no
     hay endpoint de API). Pide la contraseña por consola sin eco, la confirma
     dos veces, exige 1 carácter mínimo y **solo** reescribe
@@ -185,6 +192,11 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
 - UI en español, paleta fría (variables CSS en `styles.scss`). El escaneo es
   la acción principal: campo de código con autofocus y retorno de foco tras
   cada operación.
+- **Descargas**: se piden con `HttpClient` (`responseType: 'blob'`), se
+  guardan con `URL.createObjectURL` + un `<a download>` y se libera la URL con
+  `URL.revokeObjectURL`. Los errores se muestran con
+  `shared/api-error.ts:describeApiError` (el 401 da el aviso de sesión
+  caducada sin salir de la aplicación).
 - **Entornos de Angular**: `src/environments/environment.ts` (dev, localhost) y
   `environment.prod.ts` (prod). El build de producción se hace SIEMPRE con
   `npm run build:prod` (`frontend/scripts/build-prod.mjs`): exige `API_URL`,
@@ -272,8 +284,12 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 - `./start.sh` OK en Git Bash: levanta todo y CTRL+C deja 8000/4200 libres.
   OJO: uvicorn en el script va SIN --reload a propósito (el reloader
   rearranca al servidor al matarlo externamente y rompe el apagado limpio).
-- Frontend: `ng test` 10/10 OK (products + history con HttpTestingController);
-  `ng build` OK. E2E real con `scripts/e2e-ui.mjs` (Edge headless CDP):
+- Frontend: `ng test` 13/13 OK (products + history con HttpTestingController,
+  incluida la descarga del XLSX por HTTP con credenciales);
+  `ng build` OK. La descarga del XLSX se ha verificado end-to-end con el
+  frontend compilado y el backend real en un escenario cross-site: 200, blob
+  XLSX válido descargado y el usuario sigue en la SPA (sin navegación).
+  E2E real con `scripts/e2e-ui.mjs` (Edge headless CDP):
   **15/15 OK** — login UI, escaneo nuevo/existente, **foco del lector USB
   (el código nunca va al campo de peso)**, edición con actualización en
   caliente, 409 duplicado, 409 borrar producto con scans, borrar scans,
@@ -311,10 +327,12 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
    productos con scans saltándose la política 409.
 10. No duplicar la conversión de pesos: toda recalibración pasa por
     `services/weight.py`.
-11. No romper el foco del escáner (regla 8 de la sección 7) ni relajar la
+12. No romper el foco del escáner (regla 8 de la sección 7) ni relajar la
     validación de configuración de producción (regla 9 de la sección 7).
-12. No compilar el frontend de producción sin `API_URL`: el bundle publicado
+13. No compilar el frontend de producción sin `API_URL`: el bundle publicado
     nunca debe apuntar a `localhost`.
+14. No volver a las descargas por `window.location.href` (regla 10 de la
+    sección 7).
 
 ## 12. Migración de datos a Neon
 

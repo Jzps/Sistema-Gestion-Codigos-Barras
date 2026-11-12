@@ -120,7 +120,9 @@ Procedimiento completo: [docs/cambiar-contrasena-admin.md](docs/cambiar-contrase
      equivoque): haz clic en **Peso** para escribir el peso a mano.
 4. Escanea el mismo código otra vez → el peso aparece al instante.
 5. **Historial** muestra fecha, hora, código, producto, peso, unidad y usuario;
-   desde ahí se descarga el `.xlsx`.
+   desde ahí se descarga el `.xlsx` (la descarga se pide por HTTP con la
+   cookie de sesión; si la sesión no es válida se avisa dentro de la
+   aplicación).
 6. En **Productos** puedes **Editar** cualquier producto (código, nombre,
    peso, unidad) y **Eliminar** los que no tengan escaneos (si los tiene, la
    app avisa y no borra nada). En **Historial** puedes **Eliminar** un

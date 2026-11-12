@@ -73,11 +73,16 @@ scanner/    Pantalla principal: input con autofocus + flujo peso para códigos n
 dashboard/  Inicio con accesos directos
 products/   Listado + edición inline (PATCH) + eliminación con confirmación (DELETE)
 history/    Tabla de escaneos + eliminación con confirmación (DELETE) + exportación XLSX
-reports/    Servicio de descarga del Excel
+reports/    Servicio de descarga del Excel (HttpClient + responseType blob)
 shared/     Modelos TS, layout/navbar, directiva autofocus, api-error (errores HTTP → mensajes)
 ```
 
 - El interceptor HTTP añade `withCredentials: true` a todas las llamadas.
+- **Descargas de ficheros**: van siempre por `HttpClient` con
+  `responseType: 'blob'`, nunca por `window.location.href`. Una navegación
+  top-level a otro origen es un canal de autenticación frágil (políticas de
+  cookies cross-site más restrictivas) y, ante un 401, el usuario abandonaría la
+  SPA y vería una página JSON. La autenticación del endpoint no cambia.
 - El guard funcional protege rutas; el backend vuelve a validar siempre.
 - Sin librerías UI externas: SCSS propio (paleta fría: blanco/azules).
 - Corrección/borrado: edición en tarjeta inline y confirmación inline (sin
