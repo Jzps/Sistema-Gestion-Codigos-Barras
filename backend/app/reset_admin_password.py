@@ -11,7 +11,7 @@ Como funciona:
   2. Comprueba que el usuario existe. Si no existe, aborta SIN preguntar nada
      y SIN tocar la base de datos.
   3. Pide la nueva contrasena dos veces por consola, sin eco en pantalla
-     (getpass). La longitud minima es de 16 caracteres.
+     (getpass). La longitud minima es de 1 caracter.
   4. Genera el hash con el MISMO mecanismo que usa la aplicacion
      (`app.core.security.hash_password`, Argon2id).
   5. Actualiza UNICAMENTE el hash de contrasena de ese usuario. No toca el
@@ -41,7 +41,7 @@ from app.models.user import User
 from app.repositories import users as users_repo
 
 #: Longitud minima de la nueva contrasena.
-MIN_PASSWORD_LENGTH = 16
+MIN_PASSWORD_LENGTH = 1
 
 #: Usuario por defecto (el creado por `python -m app.seed`).
 DEFAULT_USERNAME = "admin"
@@ -54,11 +54,17 @@ class PasswordPromptError(Exception):
     """El usuario no ha conseguido introducir una contrasena valida."""
 
 
+def min_length_text(min_length: int = MIN_PASSWORD_LENGTH) -> str:
+    """Describe el minimo de longitud en singular o plural."""
+    unit = "caracter" if min_length == 1 else "caracteres"
+    return f"{min_length} {unit}"
+
+
 def validate_password_length(password: str) -> None:
     """Comprueba la longitud minima. Lanza ValueError si no se cumple."""
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(
-            f"La contrasena debe tener al menos {MIN_PASSWORD_LENGTH} caracteres "
+            f"La contrasena debe tener al menos {min_length_text()} "
             f"(introducidos: {len(password)})."
         )
 
@@ -93,7 +99,7 @@ def prompt_new_password(
         password = read("Nueva contrasena: ")
         if len(password) < min_length:
             printer(
-                f"[!] La contrasena debe tener al menos {min_length} caracteres. "
+                f"[!] La contrasena debe tener al menos {min_length_text(min_length)}. "
                 f"Te quedan {remaining} intento(s)."
             )
             continue
@@ -202,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # 2. Pedir la nueva contrasena (interactivo, sin eco).
     print()
-    print(f"Nueva contrasena para '{args.username}' (minimo {MIN_PASSWORD_LENGTH} caracteres):")
+    print(f"Nueva contrasena para '{args.username}' (minimo {min_length_text()}):")
     try:
         new_password = prompt_new_password()
     except PasswordPromptError as exc:

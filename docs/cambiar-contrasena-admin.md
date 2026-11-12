@@ -19,7 +19,7 @@ Comando independiente para cambiar la contraseña del usuario administrador
    sin tocar la base de datos.
 3. Pide la nueva contraseña por consola, **sin eco en pantalla** (`getpass`).
 4. La pide **dos veces** y exige que coincidan.
-5. Valida que tenga **al menos 16 caracteres**.
+5. Valida que tenga **al menos 1 carácter**.
 6. Genera el hash con el **mismo mecanismo que la aplicación**
    (`app.core.security.hash_password` → Argon2id).
 7. Actualiza **únicamente** la columna `password_hash` de ese usuario (un
@@ -61,7 +61,7 @@ Salida esperada:
 Usuario encontrado: admin (rol=admin)
 Workspace: Demo Workspace
 
-Nueva contrasena para 'admin' (minimo 16 caracteres):
+Nueva contrasena para 'admin' (minimo 1 caracter):
 Nueva contrasena:
 Repite la nueva contrasena:
 
@@ -137,7 +137,7 @@ Y con la antigua debe devolver **401**.
   expirar (`ACCESS_TOKEN_EXPIRE_MINUTES`, 720 por defecto = 12 h). Si necesitas
   cerrar sesión inmediatamente, reinicia el Web Service en Render (cambia
   `SECRET_KEY` y haz un redeploy).
-- **Longitud mínima**: 16 caracteres. El comando reintenta hasta 3 veces.
+- **Longitud mínima**: 1 carácter. El comando reintenta hasta 3 veces.
 - **Terminal sin eco**: si el terminal no puede ocultar lo que escribes, el
   comando avisa con `[!] Aviso: esta terminal no permite ocultar lo que
   escribes...`. En ese caso escribe la contraseña en otro sitio y pégala con

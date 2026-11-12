@@ -69,7 +69,7 @@ desarrollo, si `COOKIE_SECURE` es `false` o si `CORS_ORIGINS` apunta a
 localhost.
 
 RF-27: `python -m app.reset_admin_password` pide la nueva contraseña por
-consola sin eco, la confirma dos veces, exige 16 caracteres mínimo y reescribe
+consola sin eco, la confirma dos veces, exige 1 carácter mínimo y reescribe
 **únicamente** `users.password_hash` con Argon2id. No hay endpoint de API
 para cambiar contraseñas. Detalle en
 `docs/cambiar-contrasena-admin.md`.

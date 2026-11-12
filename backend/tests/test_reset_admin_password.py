@@ -12,6 +12,7 @@ from app.reset_admin_password import (
     PasswordPromptError,
     find_user,
     main,
+    min_length_text,
     prompt_new_password,
     reset_admin_password,
     validate_new_password,
@@ -110,21 +111,35 @@ def test_reset_unknown_user_raises_and_changes_nothing(db):
     assert admin.password_hash == hash_before
 
 
-def test_reset_rejects_a_short_password_without_touching_the_db(db):
+def test_reset_rejects_an_empty_password_without_touching_the_db(db):
     admin = make_user(db, username="admin")
     hash_before = admin.password_hash
 
     with pytest.raises(ValueError):
-        reset_admin_password(db, username="admin", new_password="corta")
+        reset_admin_password(db, username="admin", new_password="")
 
     db.refresh(admin)
     assert admin.password_hash == hash_before
 
 
+def test_reset_accepts_a_single_character_password(db):
+    """Con el minimo actual (1) una contraseña de un solo caracter es valida."""
+    assert MIN_PASSWORD_LENGTH == 1
+    admin = make_user(db, username="admin")
+    hash_before = admin.password_hash
+
+    updated = reset_admin_password(db, username="admin", new_password="x")
+
+    assert updated.password_hash != hash_before
+    assert verify_password("x", updated.password_hash) is True
+
+
 def test_validate_new_password_rules():
     assert validate_new_password(NEW_PASSWORD, NEW_PASSWORD) == NEW_PASSWORD
+    # El minimo es 1 caracter: solo la contraseña vacia es invalida por longitud.
+    assert validate_new_password("x", "x") == "x"
     with pytest.raises(ValueError):
-        validate_new_password("corta", "corta")
+        validate_new_password("", "")
     with pytest.raises(ValueError):
         validate_new_password(NEW_PASSWORD, NEW_PASSWORD + "distinta")
 
@@ -139,16 +154,22 @@ def test_prompt_returns_the_password_when_confirmed(capsys):
     assert NEW_PASSWORD not in capsys.readouterr().out
 
 
-def test_prompt_rejects_a_short_password_and_retries(capsys):
-    read = _reader(["corta", NEW_PASSWORD, NEW_PASSWORD])
+def test_prompt_rejects_an_empty_password_and_retries(capsys):
+    read = _reader(["", NEW_PASSWORD, NEW_PASSWORD])
 
     result = prompt_new_password(read)
 
     assert result == NEW_PASSWORD
     output = capsys.readouterr().out
-    assert str(MIN_PASSWORD_LENGTH) in output
-    # El prompt de confirmacion no se pidio para la contrasena corta.
+    assert min_length_text() in output
+    # El prompt de confirmacion no se pidio para la contrasena vacia.
     assert "Repite" not in output
+
+
+def test_prompt_accepts_a_single_character_password():
+    read = _reader(["x", "x"])
+
+    assert prompt_new_password(read) == "x"
 
 
 def test_prompt_rejects_mismatched_confirmation_and_retries(capsys):
@@ -161,7 +182,7 @@ def test_prompt_rejects_mismatched_confirmation_and_retries(capsys):
 
 
 def test_prompt_gives_up_after_max_attempts():
-    read = _reader(["corta"] * 6)
+    read = _reader([""] * 6)
 
     with pytest.raises(PasswordPromptError):
         prompt_new_password(read, max_attempts=2)

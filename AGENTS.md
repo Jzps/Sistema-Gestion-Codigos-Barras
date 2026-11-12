@@ -155,7 +155,7 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
 10. **Cambio de contraseña**: `python -m app.reset_admin_password` es el ÚNICO
     mecanismo de la V1 para cambiar la contraseña de un usuario existente (no
     hay endpoint de API). Pide la contraseña por consola sin eco, la confirma
-    dos veces, exige 16 caracteres mínimo y **solo** reescribe
+    dos veces, exige 1 carácter mínimo y **solo** reescribe
     `users.password_hash` (UPDATE dirigido en `repositories/users.py`). Nunca
     imprime la contraseña ni su hash, ni la guarda en archivos o variables de
     entorno. No se modifica `app/core/security.py` ni el resto del sistema de
