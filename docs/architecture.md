@@ -150,6 +150,7 @@ variables de entorno (`app/core/config.py`, `pydantic-settings`).
 | `DATABASE_URL` | Postgres de Docker | Neon (`postgresql+psycopg://…?sslmode=require`) | **sí** |
 | `SECRET_KEY` | clave de ejemplo | `secrets.token_hex(32)` (la genera Render) | **sí** |
 | `COOKIE_SECURE` | `false` | `true` | no |
+| `COOKIE_SAMESITE` | `lax` | `none` (frontend y API en sitios distintos) | no |
 | `CORS_ORIGINS` | `http://localhost:4200,…` | dominio público del frontend | no |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | `0.0.0.0` / el que asigna Render | no |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `720` | `720` | no |
@@ -159,6 +160,16 @@ validador de `Settings` aborta el arranque si `SECRET_KEY` es la clave de
 desarrollo, si `COOKIE_SECURE` es `false` o si `CORS_ORIGINS` apunta a
 localhost. Es preferible que el proceso muera a que sirva sesiones firmadas
 con una clave pública del repositorio.
+
+**`COOKIE_SAMESITE`**: atributo `SameSite` de la cookie de sesión
+(`lax` | `none` | `strict`; por defecto `lax`). En un despliegue de un solo
+origen `lax` es correcto. Cuando el frontend y la API están en **sitios
+distintos** hace falta `none` + `COOKIE_SECURE=true`: en Render,
+`onrender.com` está en la Public Suffix List, así que
+`sgcbp-web.onrender.com` y `sgcbp-api.onrender.com` son cross-site y con
+`lax` el navegador no envía la cookie → 401 en todos los endpoints
+protegidos (el login "funciona" porque no necesita cookie). La API aborta el
+arranque si `COOKIE_SAMESITE=none` y `COOKIE_SECURE=false`.
 
 **Frontend**: el bundle de producción se genera con `API_URL` (URL de la API
 sin `/api`); `scripts/build-prod.mjs` valida la variable, escribe

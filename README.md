@@ -158,7 +158,12 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 
 - **Backend**: `backend/Dockerfile` (aplica las migraciones y sirve en
   `0.0.0.0:$PORT`). Variables: `ENV=production`, `DATABASE_URL` (Neon),
-  `SECRET_KEY` (secreto), `COOKIE_SECURE=true`, `CORS_ORIGINS`.
+  `SECRET_KEY` (secreto), `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`,
+  `CORS_ORIGINS`.
+  - `COOKIE_SAMESITE=none` es **necesario** porque `onrender.com` está en la
+    Public Suffix List: el frontend y la API son sitios cross-site y con
+    `SameSite=lax` el navegador no envía la cookie → 401 al abrir Productos o
+    Historial.
 - **Frontend**: `Render Static Site` con *Root Directory* `frontend`, build
   command `npm ci && npm run build:prod` y publish path `dist/frontend/browser`.
 - **Configuración insegura**: con `ENV=production` (o `COOKIE_SECURE=true`) la

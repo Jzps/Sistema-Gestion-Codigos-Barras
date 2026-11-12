@@ -10,6 +10,10 @@ import os
 # Antes de importar cualquier modulo de la app: nunca tocar la BD real.
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SECRET_KEY"] = "test-secret-key-with-64-chars-padding-for-hmac-sha256-0000"
+# El entorno de test no depende del .env del desarrollador: la cookie de
+# sesion se emite siempre con SameSite=lax (comportamiento de desarrollo).
+os.environ["COOKIE_SAMESITE"] = "lax"
+os.environ["COOKIE_SECURE"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient

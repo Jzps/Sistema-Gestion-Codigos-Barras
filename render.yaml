@@ -38,6 +38,12 @@ services:
         value: "720"
       - key: COOKIE_SECURE
         value: "true"
+      # NOTA: en el servicio hay que anadir a mano la variable
+      #   COOKIE_SAMESITE = none
+      # Sin ella la cookie se emite con SameSite=lax y el navegador NO la
+      # envia en las peticiones cross-site (frontend y API estan en sitios
+      # distintos porque "onrender.com" esta en la Public Suffix List) -> 401
+      # en /api/products y /api/scans. Ver docs/setup-deploy.md.
       - key: CORS_ORIGINS
         sync: false # <- dominio publico del frontend (sin barra final)
       - key: HOST

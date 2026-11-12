@@ -11,7 +11,7 @@ firmadas con una clave publica del repositorio.
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Clave de desarrollo: publica y NO debe usarse en produccion.
@@ -20,6 +20,9 @@ MIN_SECRET_LENGTH = 32
 
 # Origenes que nunca son validos para una app servida por internet.
 LOCAL_ORIGINS = ("localhost", "127.0.0.1", "0.0.0.0", "[::1]")
+
+# Valores admitidos para el atributo SameSite de la cookie de sesion.
+VALID_COOKIE_SAMESITE = ("lax", "none", "strict")
 
 
 class Settings(BaseSettings):
@@ -41,6 +44,18 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
     COOKIE_NAME: str = "sgcbp_session"
     COOKIE_SECURE: bool = False  # True obligatorio en produccion (HTTPS)
+    # Atributo SameSite de la cookie de sesion.
+    # - "lax" (por defecto): el navegador solo envia la cookie en peticiones
+    #   del mismo sitio. Es lo correcto en local y en despliegues de un solo
+    #   origen.
+    # - "none": permite enviar la cookie en peticiones cross-site. Necesario
+    #   cuando el frontend y la API estan en sitios distintos (p. ej.
+    #   sgcbp-web.onrender.com y sgcbp-api.onrender.com: al estar
+    #   "onrender.com" en la Public Suffix List, son sitios distintos y con
+    #   "lax" el navegador NO envia la cookie -> 401 en los endpoints
+    #   protegidos). Exige COOKIE_SECURE=true.
+    # - "strict": la cookie nunca se envia en peticiones cross-site.
+    COOKIE_SAMESITE: str = "lax"
 
     # CORS: lista separada por comas
     CORS_ORIGINS: str = "http://localhost:4200,http://127.0.0.1:4200"
@@ -67,45 +82,79 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ENV.strip().lower() == "production"
 
+    @field_validator("COOKIE_SAMESITE", mode="before")
+    @classmethod
+    def _validate_cookie_samesite(cls, value: object) -> str:
+        """Solo se admiten lax, none y strict (sin distinguir mayusculas)."""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in VALID_COOKIE_SAMESITE:
+                return normalized
+            raise ValueError(
+                "COOKIE_SAMESITE debe ser uno de: "
+                f"{', '.join(VALID_COOKIE_SAMESITE)} (valor recibido: {value!r})"
+            )
+        raise ValueError(
+            "COOKIE_SAMESITE debe ser una cadena con uno de: "
+            f"{', '.join(VALID_COOKIE_SAMESITE)}"
+        )
+
     @model_validator(mode="after")
     def _check_production(self) -> "Settings":
-        """Impide arrancar en produccion con la configuracion insegura.
+        """Impide arrancar con una configuracion de sesion incoherente.
 
-        Se activa con ENV=production o al activar COOKIE_SECURE (implica HTTPS,
-        es decir, un despliegue real). El proceso muere al importar la app:
-        es preferible a servir sesiones falsificables.
+        - Always: `COOKIE_SAMESITE=none` exige `COOKIE_SECURE=true`. Los
+          navegadores rechazan una cookie SameSite=None sin Secure, y sin
+          Secure la cookie no viaja en HTTPS: la sesion no funcionaria.
+        - En produccion (ENV=production o COOKIE_SECURE=true): ademas se
+          exige un SECRET_KEY propio, cookies seguras y CORS publico.
+
+        El proceso muere al importar la app: es preferible a servir
+        sesiones que el navegador va a descartar o falsificables.
         """
-        if not (self.is_production or self.COOKIE_SECURE):
-            return self
-
         problems: list[str] = []
 
-        if self.SECRET_KEY == INSECURE_DEFAULT_SECRET:
+        if self.COOKIE_SAMESITE == "none" and not self.COOKIE_SECURE:
             problems.append(
-                "SECRET_KEY sigue siendo la clave de desarrollo; define una propia "
-                f"(python -c \"import secrets; print(secrets.token_hex(32))\")"
+                "COOKIE_SAMESITE=none exige COOKIE_SECURE=true "
+                "(los navegadores rechazan una cookie SameSite=None sin Secure)"
             )
-        elif len(self.SECRET_KEY) < MIN_SECRET_LENGTH:
-            problems.append(f"SECRET_KEY debe tener al menos {MIN_SECRET_LENGTH} caracteres")
 
-        if not self.COOKIE_SECURE:
-            problems.append("COOKIE_SECURE debe ser true en produccion (la cookie necesita HTTPS)")
+        if self.is_production or self.COOKIE_SECURE:
+            if self.SECRET_KEY == INSECURE_DEFAULT_SECRET:
+                problems.append(
+                    "SECRET_KEY sigue siendo la clave de desarrollo; define una propia "
+                    f"(python -c \"import secrets; print(secrets.token_hex(32))\")"
+                )
+            elif len(self.SECRET_KEY) < MIN_SECRET_LENGTH:
+                problems.append(
+                    f"SECRET_KEY debe tener al menos {MIN_SECRET_LENGTH} caracteres"
+                )
 
-        origins = self.cors_origin_list
-        if not origins:
-            problems.append("CORS_ORIGINS debe incluir el dominio publico del frontend")
-        elif any(
-            any(local in origin.lower() for local in LOCAL_ORIGINS) for origin in origins
-        ):
-            problems.append(
-                "CORS_ORIGINS no puede apuntar a localhost en produccion; "
-                "usa el dominio publico del frontend"
-            )
+            if not self.COOKIE_SECURE:
+                problems.append(
+                    "COOKIE_SECURE debe ser true en produccion (la cookie necesita HTTPS)"
+                )
+
+            origins = self.cors_origin_list
+            if not origins:
+                problems.append("CORS_ORIGINS debe incluir el dominio publico del frontend")
+            elif any(
+                any(local in origin.lower() for local in LOCAL_ORIGINS)
+                for origin in origins
+            ):
+                problems.append(
+                    "CORS_ORIGINS no puede apuntar a localhost en produccion; "
+                    "usa el dominio publico del frontend"
+                )
 
         if problems:
-            raise ValueError(
-                "Configuracion de produccion invalida: " + "; ".join(problems)
+            prefix = (
+                "Configuracion de produccion invalida: "
+                if (self.is_production or self.COOKIE_SECURE)
+                else "Configuracion invalida: "
             )
+            raise ValueError(prefix + "; ".join(problems))
         return self
 
 

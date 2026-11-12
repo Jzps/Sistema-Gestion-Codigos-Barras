@@ -213,9 +213,32 @@ alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 | `ALGORITHM` | `HS256` | no |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `720` | no |
 | `COOKIE_SECURE` | `true` | no |
+| `COOKIE_SAMESITE` | `none` | no |
 | `CORS_ORIGINS` | `https://sgcbp-web.onrender.com` (dominio real del frontend, **sin** barra final ni `/`) | no |
 | `HOST` | `0.0.0.0` | no |
 | `PORT` | *lo asigna Render; no lo definas* | — |
+
+#### ⚠️ `COOKIE_SAMESITE=none` es obligatoria en este despliegue
+
+**Sin esta variable la aplicación no funciona**, aunque el login "parezca"
+correcto:
+
+- `onrender.com` está en la **Public Suffix List** → `sgcbp-web.onrender.com` y
+  `sgcbp-api.onrender.com` son **sitios distintos (cross-site)**.
+- Con `SameSite=lax` (valor por defecto) el navegador **no envía** la cookie en
+  las peticiones XHR cross-site → `/api/products` y `/api/scans` responden
+  **401** y la UI muestra *"Tu sesión ha expirado. Vuelve a iniciar sesión."*.
+- El login sí funciona, porque esa petición no necesita cookie y el
+  `Set-Cookie` sí se guarda (guardar no está restringido por SameSite; solo el
+  envío).
+
+Por eso `COOKIE_SAMESITE=none` **exige** `COOKIE_SECURE=true` (los navegadores
+rechazan una cookie `SameSite=None` sin `Secure`). La API **falla al arrancar**
+si se configura `COOKIE_SAMESITE=none` con `COOKIE_SECURE=false`.
+
+> Cambio **manual**: en el panel de Render → `sgcbp-api` → *Environment* →
+> añadir `COOKIE_SAMESITE` = `none` y guardar. Render reinicia el servicio
+> solo. `COOKIE_SECURE=true` ya existe y **se conserva**.
 
 ### 3.3. Volver al Static Site
 
@@ -263,6 +286,9 @@ curl -s https://sgcbp-web.onrender.com/main-<hash>.js | grep -c localhost   # ->
 Y en el navegador:
 
 1. `https://sgcbp-web.onrender.com` → login con `admin` / tu contraseña.
+   - DevTools → *Application* → *Cookies* → `https://sgcbp-api.onrender.com`:
+     la cookie `sgcbp_session` debe existir con **SameSite=None** y **Secure**.
+     Si pone `SameSite=Lax`, falta `COOKIE_SAMESITE=none` en el servicio.
 2. Escanear un código → pide peso → **fíjate en que el foco sigue en el campo
    de código** (clic en "Peso" para escribirlo).
 3. Historial → la fila aparece → **Exportar Excel** descarga un `.xlsx` válido.
@@ -296,6 +322,7 @@ Y en el navegador:
 | Síntoma | Causa probable y solución |
 | --- | --- |
 | El frontend carga pero la API da error de CORS | `CORS_ORIGINS` no coincide con el dominio real (verifica en el panel, sin barra final) |
+| El login funciona pero Productos/Historial muestran *"Tu sesión ha expirado"* (401) | Falta `COOKIE_SAMESITE=none` en `sgcbp-api` (con `COOKIE_SECURE=true`). Los dos subdominios de `onrender.com` son sitios cross-site y con `SameSite=lax` el navegador no envía la cookie |
 | `500 Internal server error` al arrancar | `ENV=production` con `SECRET_KEY` de ejemplo, `COOKIE_SECURE=false` o CORS a localhost → el proceso muere con un mensaje explícito en los logs |
 | `connection refused` / `server closed the connection unexpectedly` | Falta `?sslmode=require` en `DATABASE_URL`, o falta `pool_recycle` (ya está en el código) |
 | El login devuelve 401 siempre | `SECRET_KEY` cambió entre arranques (invalida los tokens) o el reloj del servidor va desviado |

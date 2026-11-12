@@ -152,6 +152,14 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
    false o si `CORS_ORIGINS` apunta a localhost (validador en
    `app/core/config.py`). Los secretos viven solo en variables de entorno,
    nunca en el repo.
+9b. **SameSite de la cookie**: `COOKIE_SAMESITE` (`lax` | `none` | `strict`,
+   por defecto `lax`) decide el atributo `SameSite` de la cookie de sesión, y
+   se usa **exactamente el mismo valor** al emitirla y al borrarla en el
+   logout. `none` **exige** `COOKIE_SECURE=true` (si no, la app no arranca).
+   Necesario cuando frontend y API están en sitios distintos: en Render,
+   `onrender.com` está en la Public Suffix List, así que `sgcbp-web...` y
+   `sgcbp-api...` son cross-site y con `lax` el navegador no envía la cookie
+   → 401 en todos los endpoints protegidos.
 10. **Cambio de contraseña**: `python -m app.reset_admin_password` es el ÚNICO
     mecanismo de la V1 para cambiar la contraseña de un usuario existente (no
     hay endpoint de API). Pide la contraseña por consola sin eco, la confirma
@@ -240,10 +248,11 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 
 ## 10. Verificación actual (estado real comprobado)
 
-- `pytest`: **72/72 OK** (auth, 401s, conversión KG/LB, flujo escaneo
+- `pytest`: **97/97 OK** (auth, 401s, conversión KG/LB, flujo escaneo
   nuevo/existente, aislamiento entre workspaces, XLSX, PATCH de productos,
   borrado seguro de productos y scans, validación de configuración de
-  producción, **cambio de contraseña del admin**).
+  producción, cambio de contraseña del admin, **atributo SameSite de la
+  cookie de sesión**).
 - Corrección/borrado verificados en vivo (curl): PATCH nombre+peso LB
   (recalcula `weight_kg`), PATCH barcode, 409 por barcode duplicado, 409 al
   borrar producto con scans, 204 al borrar scan y luego producto, 404 tras
@@ -271,6 +280,11 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 - Validación de producción comprobada: con `ENV=production` la API **falla al
   arrancar** si `SECRET_KEY` es la de ejemplo, si `COOKIE_SECURE=false` o si
   `CORS_ORIGINS` apunta a localhost; con configuración correcta arranca.
+- `COOKIE_SAMESITE` comprobado: `lax` por defecto, `none` emite
+  `SameSite=None` (+ `Secure`, `HttpOnly`, `Path=/`, `Max-Age`), el logout
+  borra la cookie con el **mismo** `SameSite` y el flujo
+  login → `/api/auth/me` → `/api/products` → `/api/scans` → logout → 401
+  sigue verde.
 
 ## 11. Reglas que el agente NO debe romper
 

@@ -37,7 +37,7 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> LoginResp
         value=token,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         httponly=True,
-        samesite="lax",
+        samesite=settings.COOKIE_SAMESITE,
         secure=settings.COOKIE_SECURE,
     )
     return LoginResponse(user=to_user_out(user))
@@ -45,7 +45,17 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> LoginResp
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Cierra sesión")
 def logout(response: Response) -> None:
-    response.delete_cookie(key=get_settings().COOKIE_NAME, samesite="lax")
+    """Borra la cookie de sesion con EXACTAMENTE los mismos atributos con los
+    que se emitio (nombre, path, secure, httponly y samesite): si el SameSite
+    no coincide, el navegador no la elimina y la sesion "persiste"."""
+    settings = get_settings()
+    response.delete_cookie(
+        key=settings.COOKIE_NAME,
+        path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=True,
+        samesite=settings.COOKIE_SAMESITE,
+    )
 
 
 @router.get("/me", response_model=UserOut, summary="Devuelve el usuario actual")
