@@ -11,6 +11,9 @@ node_modules/
 frontend/dist/
 .angular/
 
+# Migracion de datos (CSV exportados y copias de seguridad: nunca se versionan)
+scripts/migrar-datos-neon/salida/
+
 # Entorno / secretos
 .env
 

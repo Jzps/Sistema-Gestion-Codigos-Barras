@@ -134,6 +134,51 @@ python -m app.reset_admin_password
 Detalles y procedimiento completo en
 [docs/cambiar-contrasena-admin.md](cambiar-contrasena-admin.md).
 
+### 2.3. Migrar los datos reales del entorno local a Neon
+
+La base de datos de Neon se crea **vacía** (solo con el seed), así que en
+producción no aparece ningún producto ni escaneo hasta que se migran los
+datos del entorno local.
+
+El procedimiento completo, reversible y verificable está en
+**[`scripts/migrar-datos-neon/README.md`](../scripts/migrar-datos-neon/README.md)**.
+Resumen:
+
+```bash
+# 1) Ensayo sobre una base de datos desechable (no toca Neon)
+scripts/migrar-datos-neon/rehearsal.sh
+
+# 2) Exportar los 3 productos y 5 escaneos reales del entorno local
+scripts/migrar-datos-neon/exportar.sh
+
+# 3) Indicar la URL de Neon sin dejarla en el historial
+read -rs -p "URL de Neon: " NEON_DATABASE_URL; export NEON_DATABASE_URL; echo
+
+# 4) Importar (hace copia de seguridad, valida, importa y verifica)
+scripts/migrar-datos-neon/importar.sh
+```
+
+Datos que se migran (los residuos de las pruebas E2E **no** se migran):
+
+| products.id | barcode_raw | Nombre | Peso |
+| --- | --- | --- | --- |
+| 1 | `7501234567890` | Caja demo | 44.09 LB |
+| 2 | `SNPK91365` | Prueba | 32.00 LB |
+| 3 | `LIVE-1` | Producto live | 10.00 KG |
+
+| scans.id | product_id | scanned_at |
+| --- | --- | --- |
+| 1 | 1 | 2026-10-04 18:47:05.410875+00 |
+| 2 | 1 | 2026-10-04 18:47:05.461674+00 |
+| 3 | 2 | 2026-10-04 19:42:06.298468+00 |
+| 4 | 3 | 2026-10-04 20:06:22.597834+00 |
+| 24 | 2 | 2026-11-08 18:45:41.720283+00 |
+
+> Los ids se conservan para que las relaciones (`scans.product_id`) sigan
+> apuntando al producto correcto. `workspace_id` y `user_id` son 1 en origen y
+> en destino (el seed los crea así). La importación es **transaccional**,
+> **idempotente**, hace **copia de seguridad** previa y se puede **revertir**.
+
 ---
 
 ## 3. Render — orden recomendado

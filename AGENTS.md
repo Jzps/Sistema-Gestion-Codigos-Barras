@@ -72,6 +72,8 @@ es SGCBP; la raíz del repo ES la raíz del monorepo (sin subcarpeta extra).
 ├── docs/                   # requirements, architecture, database, setup,
 │                            # setup-deploy (Render + Neon)
 ├── scripts/e2e-ui.mjs      # verificación E2E de la UI (Edge headless CDP, sin deps)
+├── scripts/migrar-datos-neon/  # kit de migración de datos a Neon:
+│                              #   export/import/verificar/revertir + ensayo
 ├── render.yaml             # blueprint de Render (web service Docker + static site)
 ├── docker-compose.yml      # SOLO PostgreSQL
 ├── start.sh                # arranque único (Git Bash Windows): todo el entorno
@@ -248,11 +250,11 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 
 ## 10. Verificación actual (estado real comprobado)
 
-- `pytest`: **97/97 OK** (auth, 401s, conversión KG/LB, flujo escaneo
+- `pytest`: **109/109 OK** (auth, 401s, conversión KG/LB, flujo escaneo
   nuevo/existente, aislamiento entre workspaces, XLSX, PATCH de productos,
   borrado seguro de productos y scans, validación de configuración de
-  producción, cambio de contraseña del admin, **atributo SameSite de la
-  cookie de sesión**).
+  producción, cambio de contraseña del admin, atributo SameSite de la
+  cookie de sesión, **kit de migración de datos a Neon**).
 - Corrección/borrado verificados en vivo (curl): PATCH nombre+peso LB
   (recalcula `weight_kg`), PATCH barcode, 409 por barcode duplicado, 409 al
   borrar producto con scans, 204 al borrar scan y luego producto, 404 tras
@@ -280,6 +282,11 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 - Validación de producción comprobada: con `ENV=production` la API **falla al
   arrancar** si `SECRET_KEY` es la de ejemplo, si `COOKIE_SECURE=false` o si
   `CORS_ORIGINS` apunta a localhost; con configuración correcta arranca.
+- Migración a Neon **ensayada** de principio a fin contra una base de datos
+  desechable (`scripts/migrar-datos-neon/rehearsal.sh`): exportar → backup →
+  importar (transaccional) → verificar (3 productos, 5 escaneos, 0 huérfanos,
+  0 E2E) → reimportar (idempotente) → revertir. La BD de ensayo se destruye
+  al terminar y **Neon no se ha tocado**.
 - `COOKIE_SAMESITE` comprobado: `lax` por defecto, `none` emite
   `SameSite=None` (+ `Secure`, `HttpOnly`, `Path=/`, `Max-Age`), el logout
   borra la cookie con el **mismo** `SameSite` y el flujo
@@ -309,7 +316,23 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 12. No compilar el frontend de producción sin `API_URL`: el bundle publicado
     nunca debe apuntar a `localhost`.
 
-## 12. Futuras extensiones previstas (diseño ya preparado, NO implementar)
+## 12. Migración de datos a Neon
+
+- `scripts/migrar-datos-neon/` es el **único** mecanismo para mover datos entre
+  bases de datos (Alembic solo gestiona el esquema).
+- Migran **3 productos y 5 escaneos reales** (ids 1,2,3 y 1,2,3,4,24). Los
+  registros `E2E-*` **no** se migran: la validación aborta si se colaran.
+- Garantías obligatorias (hay tests que las vigilan en
+  `backend/tests/test_migration_assets.py`): una sola transacción,
+  `ON CONFLICT DO NOTHING` (idempotencia), preflight de `workspace`/`usuario`
+  y de duplicados, comprobación posterior de relaciones y escaneo huérfano,
+  `setval` de las secuencias, copia de seguridad previa y reversión.
+- `scripts/migrar-datos-neon/rehearsal.sh` ensaya el procedimiento entero
+  contra una base de datos desechable. **Ejecutar el ensayo antes de tocar
+  Neon.**
+- La URL de Neon va por variable de entorno; **nunca** al repositorio.
+
+## 13. Futuras extensiones previstas (diseño ya preparado, NO implementar)
 
 - **Fase 3 (despliegue)**: Neon + Render. Ya está todo preparado
   (`backend/Dockerfile`, `render.yaml`, `frontend/scripts/build-prod.mjs`,

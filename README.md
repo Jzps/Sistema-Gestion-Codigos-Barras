@@ -170,6 +170,10 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
   API **no arranca** si `SECRET_KEY` es la de ejemplo, si las cookies no son
   seguras o si `CORS_ORIGINS` apunta a localhost.
 - `render.yaml` incluye un *blueprint* equivalente con los dos servicios.
+- **Datos**: Neon se crea vacío (solo el seed). Para llevar los datos reales
+  del entorno local a Neon hay un kit con backup, importación transaccional,
+  verificación y reversión:
+  `scripts/migrar-datos-neon/README.md`.
 
 ## Documentación
 
@@ -178,5 +182,6 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 - [docs/database.md](docs/database.md) — modelo de datos
 - [docs/setup.md](docs/setup.md) — guía de instalación detallada (local)
 - [docs/setup-deploy.md](docs/setup-deploy.md) — despliegue en Render + Neon
+- [scripts/migrar-datos-neon/README.md](scripts/migrar-datos-neon/README.md) — migración de datos locales a Neon
 - [docs/cambiar-contrasena-admin.md](docs/cambiar-contrasena-admin.md) — cambiar la contraseña del admin
 - [AGENTS.md](AGENTS.md) — memoria técnica del proyecto (reglas para agentes)
