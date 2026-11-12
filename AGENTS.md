@@ -55,7 +55,9 @@ es SGCBP; la raíz del repo ES la raíz del monorepo (sin subcarpeta extra).
 │   │   ├── repositories/   # queries (TODAS filtran por workspace_id)
 │   │   ├── services/       # weight, scan_service, auth_service, excel_export
 │   │   ├── main.py         # app FastAPI + CORS + manejador global de errores
-│   │   └── seed.py         # `python -m app.seed` (usuario dev)
+│   │   ├── seed.py         # `python -m app.seed` (usuario dev)
+│   │   └── reset_admin_password.py  # `python -m app.reset_admin_password`
+│   │                          # (cambio interactivo del hash del admin)
 │   ├── alembic/            # env.py toma DATABASE_URL de app.core.config
 │   ├── tests/              # pytest con SQLite en memoria (StaticPool)
 │   └── requirements.txt    # versiones pineadas
@@ -150,6 +152,14 @@ USERS 1─N SCANS · PRODUCTS 1─N SCANS
    false o si `CORS_ORIGINS` apunta a localhost (validador en
    `app/core/config.py`). Los secretos viven solo en variables de entorno,
    nunca en el repo.
+10. **Cambio de contraseña**: `python -m app.reset_admin_password` es el ÚNICO
+    mecanismo de la V1 para cambiar la contraseña de un usuario existente (no
+    hay endpoint de API). Pide la contraseña por consola sin eco, la confirma
+    dos veces, exige 16 caracteres mínimo y **solo** reescribe
+    `users.password_hash` (UPDATE dirigido en `repositories/users.py`). Nunca
+    imprime la contraseña ni su hash, ni la guarda en archivos o variables de
+    entorno. No se modifica `app/core/security.py` ni el resto del sistema de
+    autenticación.
 
 ## 8. Convenciones de código
 
@@ -198,6 +208,7 @@ alembic upgrade head                 # aplicar migraciones
 alembic downgrade base               # revertir (dev)
 alembic revision --autogenerate -m "msg"   # nueva migración tras tocar modelos
 python -m app.seed                   # usuario dev: admin / admin123 (Demo Workspace)
+python -m app.reset_admin_password   # cambia el hash del admin (interactivo, sin eco)
 uvicorn app.main:app --reload        # API :8000, docs en /docs
 pytest -q                            # tests (SQLite en memoria, sin Docker)
 ```
@@ -229,10 +240,10 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 
 ## 10. Verificación actual (estado real comprobado)
 
-- `pytest`: **55/55 OK** (auth, 401s, conversión KG/LB, flujo escaneo
+- `pytest`: **72/72 OK** (auth, 401s, conversión KG/LB, flujo escaneo
   nuevo/existente, aislamiento entre workspaces, XLSX, PATCH de productos,
-  borrado seguro de productos y scans, **validación de configuración de
-  producción**).
+  borrado seguro de productos y scans, validación de configuración de
+  producción, **cambio de contraseña del admin**).
 - Corrección/borrado verificados en vivo (curl): PATCH nombre+peso LB
   (recalcula `weight_kg`), PATCH barcode, 409 por barcode duplicado, 409 al
   borrar producto con scans, 204 al borrar scan y luego producto, 404 tras

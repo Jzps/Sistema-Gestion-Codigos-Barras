@@ -121,6 +121,19 @@ seed** si no quieres la de por defecto).
 > edita la fila directamente. Lo más simple: define `SEED_ADMIN_PASSWORD` con
 > tu contraseña real **antes** de ejecutar el seed.
 
+### 2.2. Cambiar la contraseña del administrador (después del primer despliegue)
+
+Hay un comando independiente para cambiar la contraseña del usuario `admin`
+**sin tocar el seed** y sin que la contraseña pase por ningún archivo ni por
+variables de entorno:
+
+```bash
+python -m app.reset_admin_password
+```
+
+Detalles y procedimiento completo en
+[docs/cambiar-contrasena-admin.md](cambiar-contrasena-admin.md).
+
 ---
 
 ## 3. Render — orden recomendado

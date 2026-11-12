@@ -101,6 +101,15 @@ Creadas por `python -m app.seed` (solo entorno local, configurables en `.env`):
 
 - Usuario: `admin` · Contraseña: `admin123` · Workspace: `Demo Workspace`
 
+Para **cambiar la contraseña del administrador** (local o en Neon) hay un
+comando aparte que la pide por consola sin eco y solo reescribe el hash:
+
+```bash
+cd backend && .venv/Scripts/python.exe -m app.reset_admin_password
+```
+
+Procedimiento completo: [docs/cambiar-contrasena-admin.md](docs/cambiar-contrasena-admin.md).
+
 ## Probar el flujo de escaneo
 
 1. Inicia sesión en `http://localhost:4200`.
@@ -164,4 +173,5 @@ cd frontend && API_URL=https://sgcbp-api.onrender.com npm run build:prod
 - [docs/database.md](docs/database.md) — modelo de datos
 - [docs/setup.md](docs/setup.md) — guía de instalación detallada (local)
 - [docs/setup-deploy.md](docs/setup-deploy.md) — despliegue en Render + Neon
+- [docs/cambiar-contrasena-admin.md](docs/cambiar-contrasena-admin.md) — cambiar la contraseña del admin
 - [AGENTS.md](AGENTS.md) — memoria técnica del proyecto (reglas para agentes)

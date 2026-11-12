@@ -53,6 +53,7 @@ queda en un historial exportable a Excel.
 | RF-24 | Eliminar scan incorrecto sin tocar el producto (204)                 | ✅ API + UI |
 | RF-25 | El foco del escáner NUNCA pasa al campo de peso (lector USB)         | ✅ API + UI |
 | RF-26 | Arranque en producción con configuración segura (sin secreto de ejemplo) | ✅ |
+| RF-27 | Cambiar la contraseña de un usuario existente (comando interactivo)     | ✅ |
 
 RF-22/23 se consumen desde la pestaña **Productos** (edición inline con
 confirmación) y RF-24 desde **Historial** (eliminación con confirmación).
@@ -66,6 +67,12 @@ de barras se guardaría como peso del producto anterior. Lo verifica el E2E.
 RF-26: con `ENV=production` la API no arranca si `SECRET_KEY` es la de
 desarrollo, si `COOKIE_SECURE` es `false` o si `CORS_ORIGINS` apunta a
 localhost.
+
+RF-27: `python -m app.reset_admin_password` pide la nueva contraseña por
+consola sin eco, la confirma dos veces, exige 16 caracteres mínimo y reescribe
+**únicamente** `users.password_hash` con Argon2id. No hay endpoint de API
+para cambiar contraseñas. Detalle en
+`docs/cambiar-contrasena-admin.md`.
 
 ## Fuera de alcance en esta V1 (decisiones explícitas)
 
